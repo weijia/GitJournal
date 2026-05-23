@@ -10,7 +10,7 @@ import 'package:gitjournal/core/image.dart' as core;
 import 'package:gitjournal/core/image.dart';
 import 'package:gitjournal/core/note.dart';
 import 'package:gitjournal/core/notes/note.dart';
-import 'package:gitjournal/editors/common.dart' as gj;
+import 'package:gitjournal/editors/common.dart';
 import 'package:gitjournal/editors/editor_scroll_view.dart';
 import 'package:gitjournal/editors/heuristics.dart';
 import 'package:gitjournal/editors/markdown_toolbar.dart';
@@ -26,13 +26,13 @@ import 'package:provider/provider.dart';
 
 import 'controllers/rich_text_controller.dart';
 
-class MarkdownEditor extends StatefulWidget implements gj.Editor {
+class MarkdownEditor extends StatefulWidget implements Editor {
   final Note note;
   final NotesFolder parentFolder;
   final bool noteModified;
 
   @override
-  final gj.EditorCommon common;
+  final EditorCommon common;
 
   final bool editMode;
   final String? highlightString;
@@ -57,7 +57,7 @@ class MarkdownEditor extends StatefulWidget implements gj.Editor {
 
 class MarkdownEditorState extends State<MarkdownEditor>
     with DisposableChangeNotifier
-    implements gj.EditorState {
+    implements EditorState {
   late Note _note;
   late TextEditingController _textController;
   late TextEditingController _titleTextController;
@@ -145,7 +145,7 @@ class MarkdownEditorState extends State<MarkdownEditor>
       );
     }
 
-    return gj.EditorScaffold(
+    return EditorScaffold(
       startingNote: widget.note,
       editor: widget,
       editorState: this,
@@ -254,7 +254,7 @@ class MarkdownEditorState extends State<MarkdownEditor>
   }
 
   @override
-  gj.SearchInfo search(String? text) {
+  SearchInfo search(String? text) {
     setState(() {
       _textController = buildController(
         text: _textController.text,
@@ -268,7 +268,7 @@ class MarkdownEditorState extends State<MarkdownEditor>
       );
     });
 
-    return gj.SearchInfo.compute(body: _textController.text, text: text);
+    return SearchInfo.compute(body: _textController.text, text: text);
   }
 
   @override
