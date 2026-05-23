@@ -270,7 +270,7 @@ class SettingsEditorType extends GjSetting {
   static const Checklist =
       SettingsEditorType(Lk.settingsEditorsChecklistEditor, "Checklist");
   static const Org = SettingsEditorType(Lk.settingsEditorsOrgEditor, "Org");
-  static const AppFlowy = SettingsEditorType("AppFlowy WYSIWYG", "AppFlowy");
+  static const AppFlowy = SettingsEditorType(Lk.settingsEditorsMarkdownEditor, "AppFlowy");
   static const Default = Markdown;
 
   const SettingsEditorType(super.lk, super.str);
