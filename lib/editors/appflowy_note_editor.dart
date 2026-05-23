@@ -136,7 +136,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
               autoFocus: widget.editMode,
               editorStyle: EditorStyle.mobile(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                placeholderText: (_) => 'Start writing...',
               ),
               characterShortcutEvents: standardCharacterShortcutEvents,
               commandShortcutEvents: standardCommandShortcutEvents,
