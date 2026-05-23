@@ -24,6 +24,7 @@ import 'package:gitjournal/editors/common.dart';
 import 'package:gitjournal/editors/common_types.dart';
 import 'package:gitjournal/editors/journal_editor.dart';
 import 'package:gitjournal/editors/markdown_editor.dart';
+import 'package:gitjournal/editors/appflowy_note_editor.dart';
 import 'package:gitjournal/editors/note_editor_selection_dialog.dart';
 import 'package:gitjournal/editors/org_editor.dart';
 import 'package:gitjournal/editors/raw_editor.dart';
@@ -136,6 +137,7 @@ class NoteEditorState extends State<NoteEditor>
 
   final _rawEditorKey = GlobalKey<RawEditorState>();
   final _markdownEditorKey = GlobalKey<MarkdownEditorState>();
+  final _appFlowyEditorKey = GlobalKey<AppFlowyNoteEditorState>();
   final _checklistEditorKey = GlobalKey<ChecklistEditorState>();
   final _journalEditorKey = GlobalKey<JournalEditorState>();
   final _orgEditorKey = GlobalKey<OrgEditorState>();
@@ -311,6 +313,17 @@ class NoteEditorState extends State<NoteEditor>
         return OrgEditor(
           key: _orgEditorKey,
           note: note,
+          noteModified: _noteModified(note),
+          editMode: widget.editMode,
+          highlightString: widget.highlightString,
+          theme: Theme.of(context),
+          common: this,
+        );
+      case EditorType.AppFlowy:
+        return AppFlowyNoteEditor(
+          key: _appFlowyEditorKey,
+          note: note,
+          parentFolder: widget.parentFolderView,
           noteModified: _noteModified(note),
           editMode: widget.editMode,
           highlightString: widget.highlightString,
