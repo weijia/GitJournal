@@ -105,6 +105,13 @@ dependencies:
   # AppFlowy Editor - WYSIWYG Markdown Editor with Table Support
   appflowy_editor: ^6.2.0
 
+
+dependency_overrides:
+  http: ^1.2.0
+  device_info_plus: ^11.0.0
+  collection: ^1.18.0
+  google_fonts: ^6.1.0
+
 dev_dependencies:
   benchmark_harness: ^2.0.0
   build_runner:
