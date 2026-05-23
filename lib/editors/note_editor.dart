@@ -584,6 +584,8 @@ class NoteEditorState extends State<NoteEditor>
         return _journalEditorKey.currentState;
       case EditorType.Org:
         return _orgEditorKey.currentState;
+      case EditorType.AppFlowy:
+        return _appFlowyEditorKey.currentState;
     }
   }
 
