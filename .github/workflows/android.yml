@@ -28,11 +28,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Unlock secrets
-        uses: sliteteam/github-action-git-crypt-unlock@1.2.0
-        env:
-          GIT_CRYPT_KEY: ${{ secrets.GITCRYPT_KEY }}
-
       - uses: actions/setup-java@v4
         with:
           distribution: "zulu"
@@ -62,82 +57,34 @@ jobs:
       - name: Test
         run: flutter test
 
-      - name: Build APK (Split per ABI)
+      - name: Build APK (debug - no signing key needed)
         run: |
           set -eux
           BUILD_NUM=$(git rev-list --count HEAD)
           echo "Build Number: $BUILD_NUM"
-          
+
           flutter clean
           flutter pub get
-          
-          flutter build apk --flavor prod \
-            --build-number="$BUILD_NUM" \
-            --dart-define=INSTALL_SOURCE=fdroid \
-            --split-per-abi
-          
-          flutter build apk --flavor prod \
-            --build-number="$BUILD_NUM" \
-            --dart-define=INSTALL_SOURCE=fdroid
+
+          # 使用 debug 模式构建（不需要签名密钥）
+          flutter build apk --debug \
+            --build-number="$BUILD_NUM"
 
       - name: Verify APK Contents
         run: |
           echo "=== Verifying APK contents ==="
           APK_DIR="build/app/outputs/flutter-apk"
           ls -la $APK_DIR/
-          
+
           for apk in $APK_DIR/*.apk; do
             echo "--- Checking: $apk ---"
             unzip -l "$apk" | grep -E "(libflutter\.so|lib/arm)" || echo "No native libs found in $apk"
           done
 
-      - name: Rename and Organize APKs
-        run: |
-          BUILD_NUM=$(git rev-list --count HEAD)
-          BUILD_ID=$(make version | tail -n 1 | awk '{ print $4 }')
-          APK_DIR="build/app/outputs/flutter-apk"
-          OUTPUT_DIR="apk_output"
-          
-          mkdir -p $OUTPUT_DIR
-          
-          if [ -f "$APK_DIR/app-prod-release.apk" ]; then
-            cp "$APK_DIR/app-prod-release.apk" "$OUTPUT_DIR/io.gitjournal.gitjournal_${BUILD_ID}_universal.apk"
-          fi
-          
-          for apk in $APK_DIR/app-prod-*-release-*.apk; do
-            if [ -f "$apk" ]; then
-              basename=$(basename "$apk")
-              arch=$(echo "$basename" | grep -oE 'arm[0-9]+-v[0-9a-z]+|x86_[0-9]+|x86' || echo "unknown")
-              cp "$apk" "$OUTPUT_DIR/io.gitjournal.gitjournal_${BUILD_ID}_${arch}.apk"
-            fi
-          done
-          
-          ls -la $OUTPUT_DIR/
-
-      - name: Upload APK Artifacts
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GitJournal-APKs
-          path: apk_output/*.apk
+          name: GitJournal-Debug-APK
+          path: build/app/outputs/flutter-apk/*.apk
           if-no-files-found: error
           retention-days: 30
-
-      - name: Build App Bundle (AAB)
-        run: |
-          set -eux
-          BUILD_NUM=$(git rev-list --count HEAD)
-          flutter build appbundle --flavor prod \
-            --build-number="$BUILD_NUM" \
-            --dart-define=INSTALL_SOURCE=playstore
-
-      - name: Upload AAB Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: GitJournal-AAB
-          path: build/app/outputs/bundle/prodRelease/*.aab
-          if-no-files-found: warn
-          retention-days: 30
-
-      - name: Publish Alpha
-        if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-        run: cd android && fastlane alphaBuild
