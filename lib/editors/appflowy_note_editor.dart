@@ -77,7 +77,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   @override
   void dispose() {
     _titleController.dispose();
-    disposeListeners();
     super.dispose();
   }
 
