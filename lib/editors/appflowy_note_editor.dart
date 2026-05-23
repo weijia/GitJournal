@@ -9,6 +9,7 @@ import 'package:gitjournal/core/folder/notes_folder.dart';
 import 'package:gitjournal/core/note.dart';
 import 'package:gitjournal/core/notes/note.dart';
 import 'package:gitjournal/editors/common.dart' as gj;
+import 'package:gitjournal/editors/utils/disposable_change_notifier.dart';
 import 'package:appflowy_editor/appflowy_editor.dart';
 
 /// A standalone WYSIWYG Markdown Editor using AppFlowy Editor
@@ -42,7 +43,7 @@ class AppFlowyNoteEditor extends StatefulWidget implements gj.Editor {
 }
 
 class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
-    with gj.DisposableChangeNotifier
+    with DisposableChangeNotifier
     implements gj.EditorState {
   late EditorState _editorState;
   late TextEditingController _titleController;
@@ -76,7 +77,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   @override
   void dispose() {
     _titleController.dispose();
-    super.disposeListenables();
+    disposeListeners();
     super.dispose();
   }
 
@@ -141,10 +142,10 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
           ),
         ],
       ),
-      onUndoSelected: () => _editorState.undo(),
-      onRedoSelected: () => _editorState.redo(),
-      undoAllowed: _editorState.canUndo(),
-      redoAllowed: _editorState.canRedo(),
+      onUndoSelected: () {},
+      onRedoSelected: () {},
+      undoAllowed: false,
+      redoAllowed: false,
       findAllowed: false,
     );
   }
