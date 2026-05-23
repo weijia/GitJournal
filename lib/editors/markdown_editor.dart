@@ -10,7 +10,7 @@ import 'package:gitjournal/core/image.dart' as core;
 import 'package:gitjournal/core/image.dart';
 import 'package:gitjournal/core/note.dart';
 import 'package:gitjournal/core/notes/note.dart';
-import 'package:gitjournal/editors/common.dart';
+import 'package:gitjournal/editors/common.dart' as gj;
 import 'package:gitjournal/editors/editor_scroll_view.dart';
 import 'package:gitjournal/editors/heuristics.dart';
 import 'package:gitjournal/editors/markdown_toolbar.dart';
@@ -23,17 +23,17 @@ import 'package:gitjournal/logger/logger.dart';
 import 'package:gitjournal/settings/app_config.dart';
 import 'package:gitjournal/utils/utils.dart';
 import 'package:provider/provider.dart';
-import 'package:appflowy_editor/appflowy_editor.dart';
+import 'package:appflowy_editor/appflowy_editor.dart' as af;
 
 import 'controllers/rich_text_controller.dart';
 
-class MarkdownEditor extends StatefulWidget implements Editor {
+class MarkdownEditor extends StatefulWidget implements gj.Editor {
   final Note note;
   final NotesFolder parentFolder;
   final bool noteModified;
 
   @override
-  final EditorCommon common;
+  final gj.EditorCommon common;
 
   final bool editMode;
   final String? highlightString;
@@ -58,7 +58,7 @@ class MarkdownEditor extends StatefulWidget implements Editor {
 
 class MarkdownEditorState extends State<MarkdownEditor>
     with DisposableChangeNotifier
-    implements EditorState {
+    implements gj.EditorState {
   late Note _note;
   late TextEditingController _textController;
   late TextEditingController _titleTextController;
@@ -73,7 +73,7 @@ class MarkdownEditorState extends State<MarkdownEditor>
   final _bodyEditorKey = GlobalKey();
 
   // AppFlowy Editor
-  EditorState? _appFlowyEditorState;
+  af.EditorState? _appFlowyEditorState;
 
   @override
   void initState() {
@@ -102,66 +102,49 @@ class MarkdownEditorState extends State<MarkdownEditor>
 
   void _initAppFlowyEditor() {
     final document = _markdownToDocument(_note.body);
-    _appFlowyEditorState = EditorState(document: document);
+    _appFlowyEditorState = af.EditorState(document: document);
   }
 
-  Document _markdownToDocument(String markdown) {
+  af.Document _markdownToDocument(String markdown) {
     // Simple markdown parser for AppFlowy
-    final document = Document.blank();
+    final document = af.Document.blank();
     final lines = markdown.split('\n');
     
     for (final line in lines) {
-      if (line.startsWith('# ')) {
-        document.insert([
-          [headingNode(level: 1, text: line.substring(2))]
-        ]);
-      } else if (line.startsWith('## ')) {
-        document.insert([
-          [headingNode(level: 2, text: line.substring(3))]
-        ]);
-      } else if (line.startsWith('### ')) {
-        document.insert([
-          [headingNode(level: 3, text: line.substring(4))]
-        ]);
-      } else if (line.startsWith('- [ ] ')) {
-        document.insert([
-          [todoListNode(text: line.substring(6), checked: false)]
-        ]);
-      } else if (line.startsWith('- [x] ') || line.startsWith('- [X] ')) {
-        document.insert([
-          [todoListNode(text: line.substring(6), checked: true)]
-        ]);
-      } else if (line.startsWith('- ') || line.startsWith('* ')) {
-        document.insert([
-          [bulletedListNode(text: line.substring(2))]
-        ]);
-      } else if (RegExp(r'^\d+\.\s').hasMatch(line)) {
-        final text = line.replaceFirst(RegExp(r'^\d+\.\s'), '');
-        document.insert([
-          [numberedListNode(text: text)]
-        ]);
-      } else if (line.startsWith('> ')) {
-        document.insert([
-          [quoteNode(text: line.substring(2))]
-        ]);
-      } else if (line.startsWith('```')) {
-        // Skip code block markers for now
-        continue;
-      } else if (line.trim().isEmpty) {
-        document.insert([
-          [paragraphNode(text: '')]
-        ]);
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) {
+        _insertNode(document, af.paragraphNode(text: ''));
+      } else if (trimmed.startsWith('# ')) {
+        _insertNode(document, af.headingNode(level: 1, text: trimmed.substring(2)));
+      } else if (trimmed.startsWith('## ')) {
+        _insertNode(document, af.headingNode(level: 2, text: trimmed.substring(3)));
+      } else if (trimmed.startsWith('### ')) {
+        _insertNode(document, af.headingNode(level: 3, text: trimmed.substring(4)));
+      } else if (trimmed.startsWith('- [ ] ')) {
+        _insertNode(document, af.todoListNode(text: trimmed.substring(6), checked: false));
+      } else if (trimmed.startsWith('- [x] ') || trimmed.startsWith('- [X] ')) {
+        _insertNode(document, af.todoListNode(text: trimmed.substring(6), checked: true));
+      } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+        _insertNode(document, af.bulletedListNode(text: trimmed.substring(2)));
+      } else if (RegExp(r'^\d+\.\s').hasMatch(trimmed)) {
+        final text = trimmed.replaceFirst(RegExp(r'^\d+\.\s'), '');
+        _insertNode(document, af.numberedListNode(text: text));
+      } else if (trimmed.startsWith('> ')) {
+        _insertNode(document, af.quoteNode(text: trimmed.substring(2)));
       } else {
-        document.insert([
-          [paragraphNode(text: line)]
-        ]);
+        _insertNode(document, af.paragraphNode(text: trimmed));
       }
     }
     
     return document;
   }
 
-  String _documentToMarkdown(Document document) {
+  void _insertNode(af.Document document, af.Node node) {
+    final root = document.root;
+    root.insert(root.children.length, [node]);
+  }
+
+  String _documentToMarkdown(af.Document document) {
     final buffer = StringBuffer();
     final root = document.root;
     
@@ -257,7 +240,7 @@ class MarkdownEditorState extends State<MarkdownEditor>
       }
     }
 
-    return EditorScaffold(
+    return gj.EditorScaffold(
       startingNote: widget.note,
       editor: widget,
       editorState: this,
@@ -308,22 +291,12 @@ class MarkdownEditorState extends State<MarkdownEditor>
         ),
         // AppFlowy Editor for body
         Expanded(
-          child: AppFlowyEditor.standard(
+          child: af.AppFlowyEditor.standard(
             editorState: _appFlowyEditorState!,
-            editorStyle: EditorStyle.desktop(
+            editorStyle: af.EditorStyle.desktop(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              textStyleConfiguration: TextStyleConfiguration(
-                text: widget.theme.textTheme.bodyMedium ?? const TextStyle(fontSize: 16),
-                code: widget.theme.textTheme.bodySmall?.copyWith(
-                  fontFamily: 'monospace',
-                  backgroundColor: Colors.grey.shade200,
-                ) ?? const TextStyle(fontFamily: 'monospace'),
-              ),
             ),
-            header: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: _buildAppFlowyToolbar(),
-            ),
+            header: _buildAppFlowyToolbar(),
           ),
         ),
       ],
@@ -333,173 +306,120 @@ class MarkdownEditorState extends State<MarkdownEditor>
   Widget _buildAppFlowyToolbar() {
     if (_appFlowyEditorState == null) return const SizedBox.shrink();
     
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: ToolbarWidget(
-        editorState: _appFlowyEditorState!,
-        toolbarItems: [
-          // Text formatting
-          ToolbarItem(
-            id: 'bold',
-            group: 0,
-            isActive: (editorState) => editorState.selection != null,
-            builder: (context, editorState, highlightColor, iconColor, tooltipColor, onHover) {
-              return IconButton(
-                icon: const Icon(Icons.format_bold),
-                onPressed: () => editorState.toggleAttribute(AppFlowyRichTextKeys.bold),
-                tooltip: 'Bold',
-              );
-            },
-          ),
-          ToolbarItem(
-            id: 'italic',
-            group: 0,
-            isActive: (editorState) => editorState.selection != null,
-            builder: (context, editorState, highlightColor, iconColor, tooltipColor, onHover) {
-              return IconButton(
-                icon: const Icon(Icons.format_italic),
-                onPressed: () => editorState.toggleAttribute(AppFlowyRichTextKeys.italic),
-                tooltip: 'Italic',
-              );
-            },
-          ),
-          ToolbarItem(
-            id: 'underline',
-            group: 0,
-            isActive: (editorState) => editorState.selection != null,
-            builder: (context, editorState, highlightColor, iconColor, tooltipColor, onHover) {
-              return IconButton(
-                icon: const Icon(Icons.format_underline),
-                onPressed: () => editorState.toggleAttribute(AppFlowyRichTextKeys.underline),
-                tooltip: 'Underline',
-              );
-            },
-          ),
-          // Headings
-          ToolbarItem(
-            id: 'h1',
-            group: 1,
-            isActive: (editorState) => editorState.selection != null,
-            builder: (context, editorState, highlightColor, iconColor, tooltipColor, onHover) {
-              return IconButton(
-                icon: const Text('H1', style: TextStyle(fontWeight: FontWeight.bold)),
-                onPressed: () => editorState.convertToHeading(1),
-                tooltip: 'Heading 1',
-              );
-            },
-          ),
-          ToolbarItem(
-            id: 'h2',
-            group: 1,
-            isActive: (editorState) => editorState.selection != null,
-            builder: (context, editorState, highlightColor, iconColor, tooltipColor, onHover) {
-              return IconButton(
-                icon: const Text('H2', style: TextStyle(fontWeight: FontWeight.bold)),
-                onPressed: () => editorState.convertToHeading(2),
-                tooltip: 'Heading 2',
-              );
-            },
-          ),
-          ToolbarItem(
-            id: 'h3',
-            group: 1,
-            isActive: (editorState) => editorState.selection != null,
-            builder: (context, editorState, highlightColor, iconColor, tooltipColor, onHover) {
-              return IconButton(
-                icon: const Text('H3', style: TextStyle(fontWeight: FontWeight.bold)),
-                onPressed: () => editorState.convertToHeading(3),
-                tooltip: 'Heading 3',
-              );
-            },
-          ),
-          // Lists
-          ToolbarItem(
-            id: 'bullet_list',
-            group: 2,
-            isActive: (editorState) => editorState.selection != null,
-            builder: (context, editorState, highlightColor, iconColor, tooltipColor, onHover) {
-              return IconButton(
-                icon: const Icon(Icons.format_list_bulleted),
-                onPressed: () => editorState.convertToBulletedList(),
-                tooltip: 'Bullet List',
-              );
-            },
-          ),
-          ToolbarItem(
-            id: 'numbered_list',
-            group: 2,
-            isActive: (editorState) => editorState.selection != null,
-            builder: (context, editorState, highlightColor, iconColor, tooltipColor, onHover) {
-              return IconButton(
-                icon: const Icon(Icons.format_list_numbered),
-                onPressed: () => editorState.convertToNumberedList(),
-                tooltip: 'Numbered List',
-              );
-            },
-          ),
-          ToolbarItem(
-            id: 'todo_list',
-            group: 2,
-            isActive: (editorState) => editorState.selection != null,
-            builder: (context, editorState, highlightColor, iconColor, tooltipColor, onHover) {
-              return IconButton(
-                icon: const Icon(Icons.check_box_outlined),
-                onPressed: () => editorState.convertToTodoList(),
-                tooltip: 'Todo List',
-              );
-            },
-          ),
-          // Quote and Code
-          ToolbarItem(
-            id: 'quote',
-            group: 3,
-            isActive: (editorState) => editorState.selection != null,
-            builder: (context, editorState, highlightColor, iconColor, tooltipColor, onHover) {
-              return IconButton(
-                icon: const Icon(Icons.format_quote),
-                onPressed: () => editorState.convertToQuote(),
-                tooltip: 'Quote',
-              );
-            },
-          ),
-          ToolbarItem(
-            id: 'code',
-            group: 3,
-            isActive: (editorState) => editorState.selection != null,
-            builder: (context, editorState, highlightColor, iconColor, tooltipColor, onHover) {
-              return IconButton(
-                icon: const Icon(Icons.code),
-                onPressed: () => editorState.toggleAttribute(AppFlowyRichTextKeys.code),
-                tooltip: 'Code',
-              );
-            },
-          ),
-          // Undo/Redo
-          ToolbarItem(
-            id: 'undo',
-            group: 4,
-            isActive: (editorState) => editorState.canUndo(),
-            builder: (context, editorState, highlightColor, iconColor, tooltipColor, onHover) {
-              return IconButton(
-                icon: const Icon(Icons.undo),
-                onPressed: () => editorState.undo(),
-                tooltip: 'Undo',
-              );
-            },
-          ),
-          ToolbarItem(
-            id: 'redo',
-            group: 4,
-            isActive: (editorState) => editorState.canRedo(),
-            builder: (context, editorState, highlightColor, iconColor, tooltipColor, onHover) {
-              return IconButton(
-                icon: const Icon(Icons.redo),
-                onPressed: () => editorState.redo(),
-                tooltip: 'Redo',
-              );
-            },
-          ),
-        ],
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            // Bold
+            IconButton(
+              icon: const Icon(Icons.format_bold),
+              onPressed: () => _appFlowyEditorState!.toggleAttribute(af.AppFlowyRichTextKeys.bold),
+              tooltip: 'Bold',
+            ),
+            // Italic
+            IconButton(
+              icon: const Icon(Icons.format_italic),
+              onPressed: () => _appFlowyEditorState!.toggleAttribute(af.AppFlowyRichTextKeys.italic),
+              tooltip: 'Italic',
+            ),
+            // Underline
+            IconButton(
+              icon: const Icon(Icons.format_underline),
+              onPressed: () => _appFlowyEditorState!.toggleAttribute(af.AppFlowyRichTextKeys.underline),
+              tooltip: 'Underline',
+            ),
+            const VerticalDivider(),
+            // H1
+            IconButton(
+              icon: const Text('H1', style: TextStyle(fontWeight: FontWeight.bold)),
+              onPressed: () => _appFlowyEditorState!.formatNode(
+                af.FormatStyle.heading,
+                af.LevelAttribute(level: 1),
+              ),
+              tooltip: 'Heading 1',
+            ),
+            // H2
+            IconButton(
+              icon: const Text('H2', style: TextStyle(fontWeight: FontWeight.bold)),
+              onPressed: () => _appFlowyEditorState!.formatNode(
+                af.FormatStyle.heading,
+                af.LevelAttribute(level: 2),
+              ),
+              tooltip: 'Heading 2',
+            ),
+            // H3
+            IconButton(
+              icon: const Text('H3', style: TextStyle(fontWeight: FontWeight.bold)),
+              onPressed: () => _appFlowyEditorState!.formatNode(
+                af.FormatStyle.heading,
+                af.LevelAttribute(level: 3),
+              ),
+              tooltip: 'Heading 3',
+            ),
+            const VerticalDivider(),
+            // Bullet list
+            IconButton(
+              icon: const Icon(Icons.format_list_bulleted),
+              onPressed: () => _appFlowyEditorState!.formatNode(
+                af.FormatStyle.bulletedList,
+                null,
+              ),
+              tooltip: 'Bullet List',
+            ),
+            // Numbered list
+            IconButton(
+              icon: const Icon(Icons.format_list_numbered),
+              onPressed: () => _appFlowyEditorState!.formatNode(
+                af.FormatStyle.numberedList,
+                null,
+              ),
+              tooltip: 'Numbered List',
+            ),
+            // Todo list
+            IconButton(
+              icon: const Icon(Icons.check_box_outlined),
+              onPressed: () => _appFlowyEditorState!.formatNode(
+                af.FormatStyle.todoList,
+                null,
+              ),
+              tooltip: 'Todo List',
+            ),
+            const VerticalDivider(),
+            // Quote
+            IconButton(
+              icon: const Icon(Icons.format_quote),
+              onPressed: () => _appFlowyEditorState!.formatNode(
+                af.FormatStyle.quote,
+                null,
+              ),
+              tooltip: 'Quote',
+            ),
+            // Code
+            IconButton(
+              icon: const Icon(Icons.code),
+              onPressed: () => _appFlowyEditorState!.toggleAttribute(af.AppFlowyRichTextKeys.code),
+              tooltip: 'Code',
+            ),
+            const VerticalDivider(),
+            // Undo
+            IconButton(
+              icon: const Icon(Icons.undo),
+              onPressed: () => _appFlowyEditorState!.undo(),
+              tooltip: 'Undo',
+            ),
+            // Redo
+            IconButton(
+              icon: const Icon(Icons.redo),
+              onPressed: () => _appFlowyEditorState!.redo(),
+              tooltip: 'Redo',
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -576,8 +496,8 @@ class MarkdownEditorState extends State<MarkdownEditor>
         // Insert image into AppFlowy Editor
         final transaction = _appFlowyEditorState!.transaction;
         transaction.insertNode(
-          _appFlowyEditorState!.selection!.end.path,
-          imageNode(url: image.filePath),
+          _appFlowyEditorState!.selection?.end.path ?? [0],
+          af.imageNode(url: image.filePath),
         );
         await _appFlowyEditorState!.apply(transaction);
         setState(() {
@@ -625,7 +545,7 @@ class MarkdownEditorState extends State<MarkdownEditor>
   }
 
   @override
-  SearchInfo search(String? text) {
+  gj.SearchInfo search(String? text) {
     setState(() {
       _textController = buildController(
         text: _textController.text,
@@ -639,7 +559,7 @@ class MarkdownEditorState extends State<MarkdownEditor>
       );
     });
 
-    return SearchInfo.compute(body: _textController.text, text: text);
+    return gj.SearchInfo.compute(body: _textController.text, text: text);
   }
 
   @override
