@@ -128,12 +128,15 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
           // Toolbar (only in edit mode)
           if (widget.editMode) _buildToolbar(),
           const Divider(height: 1),
-          // Editor
+          // Editor - use mobile-friendly configuration
           Expanded(
             child: AppFlowyEditor(
               editorState: _editorState,
-              editorStyle: EditorStyle.desktop(
+              editable: widget.editMode,
+              autoFocus: widget.editMode,
+              editorStyle: EditorStyle.mobile(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                placeholderText: (_) => 'Start writing...',
               ),
               characterShortcutEvents: standardCharacterShortcutEvents,
               commandShortcutEvents: standardCommandShortcutEvents,
