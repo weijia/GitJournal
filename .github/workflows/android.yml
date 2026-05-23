@@ -67,7 +67,7 @@ jobs:
           flutter pub get
 
           # 使用 debug 模式构建（不需要签名密钥）
-          flutter build apk --debug \
+          flutter build apk --debug --flavor dev \
             --build-number="$BUILD_NUM"
 
       - name: Verify APK Contents
