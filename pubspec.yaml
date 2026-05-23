@@ -111,6 +111,7 @@ dependency_overrides:
   device_info_plus: ^11.0.0
   collection: ^1.18.0
   google_fonts: ^6.1.0
+  image: ^4.1.0
 
 dev_dependencies:
   benchmark_harness: ^2.0.0
