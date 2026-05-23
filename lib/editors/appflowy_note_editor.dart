@@ -8,325 +8,256 @@ import 'package:flutter/material.dart';
 import 'package:gitjournal/core/folder/notes_folder.dart';
 import 'package:gitjournal/core/note.dart';
 import 'package:gitjournal/core/notes/note.dart';
-import 'package:appflowy_editor/appflowy_editor.dart' as af;
+import 'package:gitjournal/editors/common.dart' as gj;
+import 'package:appflowy_editor/appflowy_editor.dart';
 
 /// A standalone WYSIWYG Markdown Editor using AppFlowy Editor
-/// 
-/// This is an experimental editor that provides rich text editing
-/// capabilities with support for:
-/// - Bold, Italic, Underline
-/// - Headings (H1, H2, H3)
-/// - Bullet and Numbered lists
-/// - Todo lists
-/// - Quotes
-/// - Code blocks
-/// - Tables (via AppFlowy's SimpleTable)
-class AppFlowyNoteEditor extends StatefulWidget {
+///
+/// Provides rich text editing with Markdown import/export support.
+class AppFlowyNoteEditor extends StatefulWidget implements gj.Editor {
   final Note note;
   final NotesFolder parentFolder;
-  final Function(Note) onNoteChanged;
+  final bool noteModified;
+
+  @override
+  final gj.EditorCommon common;
+
+  final bool editMode;
+  final String? highlightString;
+  final ThemeData theme;
 
   const AppFlowyNoteEditor({
     super.key,
     required this.note,
     required this.parentFolder,
-    required this.onNoteChanged,
+    required this.noteModified,
+    required this.editMode,
+    required this.highlightString,
+    required this.theme,
+    required this.common,
   });
 
   @override
-  State<AppFlowyNoteEditor> createState() => _AppFlowyNoteEditorState();
+  AppFlowyNoteEditorState createState() => AppFlowyNoteEditorState();
 }
 
-class _AppFlowyNoteEditorState extends State<AppFlowyNoteEditor> {
-  late af.EditorState _editorState;
+class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
+    with gj.DisposableChangeNotifier
+    implements gj.EditorState {
+  late EditorState _editorState;
   late TextEditingController _titleController;
   bool _isModified = false;
+  late Note _note;
+  late AppFlowyEditorMarkdownCodec _markdownCodec;
 
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.note.title ?? '');
-    _editorState = af.EditorState(
-      document: _markdownToDocument(widget.note.body),
-    );
-    
+    _note = widget.note;
+    _isModified = widget.noteModified;
+    _titleController = TextEditingController(text: _note.title ?? '');
+    _markdownCodec = AppFlowyEditorMarkdownCodec();
+
+    // Parse markdown to document
+    final document = _markdownCodec.decode(_note.body);
+    _editorState = EditorState(document: document);
+
     // Listen for changes
-    _editorState.addListener(_onEditorChanged);
+    _editorState.transactionStream.listen((_) {
+      if (!_isModified) {
+        setState(() {
+          _isModified = true;
+        });
+        notifyListeners();
+      }
+    });
   }
 
   @override
   void dispose() {
-    _editorState.removeListener(_onEditorChanged);
     _titleController.dispose();
+    super.disposeListenables();
     super.dispose();
   }
 
-  void _onEditorChanged() {
-    setState(() {
-      _isModified = true;
-    });
-  }
-
-  af.Document _markdownToDocument(String markdown) {
-    // Create a simple document from markdown
-    // This is a basic parser - for production, consider using a proper markdown parser
-    final document = af.Document.blank();
-    final lines = markdown.split('\n');
-    
-    for (final line in lines) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) {
-        _insertNode(document, af.paragraphNode(text: ''));
-      } else if (trimmed.startsWith('# ')) {
-        _insertNode(document, af.headingNode(level: 1, text: trimmed.substring(2)));
-      } else if (trimmed.startsWith('## ')) {
-        _insertNode(document, af.headingNode(level: 2, text: trimmed.substring(3)));
-      } else if (trimmed.startsWith('### ')) {
-        _insertNode(document, af.headingNode(level: 3, text: trimmed.substring(4)));
-      } else if (trimmed.startsWith('- [ ] ')) {
-        _insertNode(document, af.todoListNode(text: trimmed.substring(6), checked: false));
-      } else if (trimmed.startsWith('- [x] ') || trimmed.startsWith('- [X] ')) {
-        _insertNode(document, af.todoListNode(text: trimmed.substring(6), checked: true));
-      } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-        _insertNode(document, af.bulletedListNode(text: trimmed.substring(2)));
-      } else if (RegExp(r'^\d+\.\s').hasMatch(trimmed)) {
-        final text = trimmed.replaceFirst(RegExp(r'^\d+\.\s'), '');
-        _insertNode(document, af.numberedListNode(text: text));
-      } else if (trimmed.startsWith('> ')) {
-        _insertNode(document, af.quoteNode(text: trimmed.substring(2)));
-      } else {
-        _insertNode(document, af.paragraphNode(text: trimmed));
-      }
+  @override
+  void didUpdateWidget(AppFlowyNoteEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.noteModified != widget.noteModified) {
+      _isModified = widget.noteModified;
     }
-    
-    return document;
-  }
-
-  void _insertNode(af.Document document, af.Node node) {
-    final root = document.root;
-    root.insert(root.children.length, [node]);
-  }
-
-  String _documentToMarkdown(af.Document document) {
-    final buffer = StringBuffer();
-    final root = document.root;
-    
-    for (final node in root.children) {
-      final type = node.type;
-      final delta = node.delta;
-      final text = delta?.toPlainText() ?? '';
-      
-      switch (type) {
-        case 'heading':
-          final level = node.attributes['level'] ?? 1;
-          buffer.writeln('${"#" * level} $text');
-          break;
-        case 'todo_list':
-          final checked = node.attributes['checked'] ?? false;
-          buffer.writeln('- [${checked ? "x" : " "}] $text');
-          break;
-        case 'bulleted_list':
-          buffer.writeln('- $text');
-          break;
-        case 'numbered_list':
-          buffer.writeln('1. $text');
-          break;
-        case 'quote':
-          buffer.writeln('> $text');
-          break;
-        case 'code_block':
-          buffer.writeln('```');
-          buffer.writeln(text);
-          buffer.writeln('```');
-          break;
-        case 'paragraph':
-        default:
-          if (text.isNotEmpty) {
-            buffer.writeln(text);
-          } else {
-            buffer.writeln();
-          }
-          break;
-      }
+    if (oldWidget.note != widget.note) {
+      _note = widget.note;
+      _titleController.text = _note.title ?? '';
+      final document = _markdownCodec.decode(_note.body);
+      _editorState = EditorState(document: document);
     }
-    
-    return buffer.toString().trim();
-  }
-
-  void _saveNote() {
-    final body = _documentToMarkdown(_editorState.document);
-    final title = _titleController.text.trim();
-    
-    final updatedNote = widget.note.copyWith(
-      body: body,
-      title: title.isEmpty ? null : title,
-      type: NoteType.Unknown,
-    );
-    
-    widget.onNoteChanged(updatedNote);
-    setState(() {
-      _isModified = false;
-    });
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Note saved')),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('WYSIWYG Editor'),
-        actions: [
-          if (_isModified)
-            TextButton.icon(
-              onPressed: _saveNote,
-              icon: const Icon(Icons.save),
-              label: const Text('Save'),
-            ),
-        ],
-      ),
+    return gj.EditorScaffold(
+      startingNote: widget.note,
+      editor: widget,
+      editorState: this,
+      noteModified: _isModified,
+      editMode: widget.editMode,
+      parentFolder: _note.parent,
       body: Column(
         children: [
-          // Title input
+          // Title
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TextField(
               controller: _titleController,
               decoration: const InputDecoration(
-                hintText: 'Note Title',
-                border: OutlineInputBorder(),
+                hintText: 'Title',
+                border: InputBorder.none,
               ),
               style: const TextStyle(
-                fontSize: 20,
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
               ),
-              onChanged: (_) => setState(() => _isModified = true),
+              onChanged: (_) {
+                _isModified = true;
+                notifyListeners();
+              },
             ),
           ),
-          // Toolbar
-          _buildToolbar(),
-          const Divider(),
+          const Divider(height: 1),
+          // Toolbar (only in edit mode)
+          if (widget.editMode) _buildToolbar(),
+          const Divider(height: 1),
           // Editor
           Expanded(
-            child: af.AppFlowyEditor(
+            child: AppFlowyEditor(
               editorState: _editorState,
+              editorStyle: EditorStyle.desktop(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              ),
+              characterShortcutEvents: standardCharacterShortcutEvents,
+              commandShortcutEvents: standardCommandShortcutEvents,
             ),
           ),
         ],
       ),
+      onUndoSelected: () => _editorState.undo(),
+      onRedoSelected: () => _editorState.redo(),
+      undoAllowed: _editorState.canUndo(),
+      redoAllowed: _editorState.canRedo(),
+      findAllowed: false,
     );
   }
 
   Widget _buildToolbar() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Row(
-        children: [
-          // Text formatting
-          IconButton(
-            icon: const Icon(Icons.format_bold),
-            onPressed: () => _editorState.toggleAttribute(af.AppFlowyRichTextKeys.bold),
-            tooltip: 'Bold',
-          ),
-          IconButton(
-            icon: const Icon(Icons.format_italic),
-            onPressed: () => _editorState.toggleAttribute(af.AppFlowyRichTextKeys.italic),
-            tooltip: 'Italic',
-          ),
-          IconButton(
-            icon: const Icon(Icons.format_underline),
-            onPressed: () => _editorState.toggleAttribute(af.AppFlowyRichTextKeys.underline),
-            tooltip: 'Underline',
-          ),
-          IconButton(
-            icon: const Icon(Icons.strikethrough_s),
-            onPressed: () => _editorState.toggleAttribute(af.AppFlowyRichTextKeys.strikethrough),
-            tooltip: 'Strikethrough',
-          ),
-          const VerticalDivider(),
-          // Headings
-          IconButton(
-            icon: const Text('H1', style: TextStyle(fontWeight: FontWeight.bold)),
-            onPressed: () => _editorState.formatNode(
-              null,
-              (node) => af.headingNode(level: 1, text: node.delta?.toPlainText() ?? ''),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      color: Colors.grey.shade100,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _toolbarButton(
+              icon: Icons.format_bold,
+              tooltip: 'Bold',
+              onPressed: () => _editorState.toggleAttribute(BuiltInAttributeKey.bold),
             ),
-            tooltip: 'Heading 1',
-          ),
-          IconButton(
-            icon: const Text('H2', style: TextStyle(fontWeight: FontWeight.bold)),
-            onPressed: () => _editorState.formatNode(
-              null,
-              (node) => af.headingNode(level: 2, text: node.delta?.toPlainText() ?? ''),
+            _toolbarButton(
+              icon: Icons.format_italic,
+              tooltip: 'Italic',
+              onPressed: () => _editorState.toggleAttribute(BuiltInAttributeKey.italic),
             ),
-            tooltip: 'Heading 2',
-          ),
-          IconButton(
-            icon: const Text('H3', style: TextStyle(fontWeight: FontWeight.bold)),
-            onPressed: () => _editorState.formatNode(
-              null,
-              (node) => af.headingNode(level: 3, text: node.delta?.toPlainText() ?? ''),
+            _toolbarButton(
+              icon: Icons.format_underline,
+              tooltip: 'Underline',
+              onPressed: () => _editorState.toggleAttribute(BuiltInAttributeKey.underline),
             ),
-            tooltip: 'Heading 3',
-          ),
-          const VerticalDivider(),
-          // Lists
-          IconButton(
-            icon: const Icon(Icons.format_list_bulleted),
-            onPressed: () => _editorState.formatNode(
-              null,
-              (node) => af.bulletedListNode(text: node.delta?.toPlainText() ?? ''),
+            _toolbarButton(
+              icon: Icons.strikethrough_s,
+              tooltip: 'Strikethrough',
+              onPressed: () => _editorState.toggleAttribute(BuiltInAttributeKey.strikethrough),
             ),
-            tooltip: 'Bullet List',
-          ),
-          IconButton(
-            icon: const Icon(Icons.format_list_numbered),
-            onPressed: () => _editorState.formatNode(
-              null,
-              (node) => af.numberedListNode(text: node.delta?.toPlainText() ?? ''),
+            _toolbarDivider(),
+            _toolbarButton(
+              icon: Icons.format_list_bulleted,
+              tooltip: 'Bullet List',
+              onPressed: () => _editorState.toggleAttribute(BuiltInAttributeKey.bulletedList),
             ),
-            tooltip: 'Numbered List',
-          ),
-          IconButton(
-            icon: const Icon(Icons.check_box_outlined),
-            onPressed: () => _editorState.formatNode(
-              null,
-              (node) => af.todoListNode(text: node.delta?.toPlainText() ?? '', checked: false),
+            _toolbarButton(
+              icon: Icons.format_list_numbered,
+              tooltip: 'Numbered List',
+              onPressed: () => _editorState.toggleAttribute(BuiltInAttributeKey.numberList),
             ),
-            tooltip: 'Todo List',
-          ),
-          const VerticalDivider(),
-          // Quote and Code
-          IconButton(
-            icon: const Icon(Icons.format_quote),
-            onPressed: () => _editorState.formatNode(
-              null,
-              (node) => af.quoteNode(text: node.delta?.toPlainText() ?? ''),
+            _toolbarButton(
+              icon: Icons.check_box_outlined,
+              tooltip: 'Todo List',
+              onPressed: () => _editorState.toggleAttribute(BuiltInAttributeKey.checkbox),
             ),
-            tooltip: 'Quote',
-          ),
-          IconButton(
-            icon: const Icon(Icons.code),
-            onPressed: () => _editorState.toggleAttribute(af.AppFlowyRichTextKeys.code),
-            tooltip: 'Code',
-          ),
-          const VerticalDivider(),
-          // Undo/Redo
-          IconButton(
-            icon: const Icon(Icons.undo),
-            onPressed: _editorState.canUndo() ? () => _editorState.undo() : null,
-            tooltip: 'Undo',
-          ),
-          IconButton(
-            icon: const Icon(Icons.redo),
-            onPressed: _editorState.canRedo() ? () => _editorState.redo() : null,
-            tooltip: 'Redo',
-          ),
-        ],
+            _toolbarDivider(),
+            _toolbarButton(
+              icon: Icons.format_quote,
+              tooltip: 'Quote',
+              onPressed: () => _editorState.toggleAttribute(BuiltInAttributeKey.quote),
+            ),
+            _toolbarButton(
+              icon: Icons.code,
+              tooltip: 'Code',
+              onPressed: () => _editorState.toggleAttribute(BuiltInAttributeKey.code),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _toolbarButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return IconButton(
+      icon: Icon(icon, size: 20),
+      tooltip: tooltip,
+      onPressed: onPressed,
+      padding: const EdgeInsets.all(6),
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+    );
+  }
+
+  Widget _toolbarDivider() {
+    return Container(
+      width: 1,
+      height: 24,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      color: Colors.grey.shade400,
+    );
+  }
+
+  @override
+  Note getNote() {
+    final body = _markdownCodec.encode(_editorState.document);
+    return _note.copyWith(
+      body: body,
+      title: _titleController.text.trim(),
+      type: NoteType.Unknown,
+    );
+  }
+
+  @override
+  bool get noteModified => _isModified;
+
+  @override
+  Future<void> addImage(String filePath) async {
+    // Image insertion not yet supported in AppFlowy Editor mode
+  }
+
+  @override
+  gj.SearchInfo search(String? text) {
+    return gj.SearchInfo.compute(body: _markdownCodec.encode(_editorState.document), text: text);
+  }
+
+  @override
+  void scrollToResult(String text, int num) {
+    // Search scroll not yet supported in AppFlowy Editor mode
   }
 }
