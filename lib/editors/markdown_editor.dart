@@ -23,7 +23,6 @@ import 'package:gitjournal/logger/logger.dart';
 import 'package:gitjournal/settings/app_config.dart';
 import 'package:gitjournal/utils/utils.dart';
 import 'package:provider/provider.dart';
-import 'package:appflowy_editor/appflowy_editor.dart' as af;
 
 import 'controllers/rich_text_controller.dart';
 
@@ -72,9 +71,6 @@ class MarkdownEditorState extends State<MarkdownEditor>
 
   final _bodyEditorKey = GlobalKey();
 
-  // AppFlowy Editor
-  af.EditorState? _appFlowyEditorState;
-
   @override
   void initState() {
     super.initState();
@@ -95,99 +91,6 @@ class MarkdownEditorState extends State<MarkdownEditor>
 
     _scrollController = ScrollController(keepScrollOffset: false);
     _undoRedoStack = UndoRedoStack();
-
-    // Initialize AppFlowy Editor
-    _initAppFlowyEditor();
-  }
-
-  void _initAppFlowyEditor() {
-    final document = _markdownToDocument(_note.body);
-    _appFlowyEditorState = af.EditorState(document: document);
-  }
-
-  af.Document _markdownToDocument(String markdown) {
-    // Simple markdown parser for AppFlowy
-    final document = af.Document.blank();
-    final lines = markdown.split('\n');
-    
-    for (final line in lines) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) {
-        _insertNode(document, af.paragraphNode(text: ''));
-      } else if (trimmed.startsWith('# ')) {
-        _insertNode(document, af.headingNode(level: 1, text: trimmed.substring(2)));
-      } else if (trimmed.startsWith('## ')) {
-        _insertNode(document, af.headingNode(level: 2, text: trimmed.substring(3)));
-      } else if (trimmed.startsWith('### ')) {
-        _insertNode(document, af.headingNode(level: 3, text: trimmed.substring(4)));
-      } else if (trimmed.startsWith('- [ ] ')) {
-        _insertNode(document, af.todoListNode(text: trimmed.substring(6), checked: false));
-      } else if (trimmed.startsWith('- [x] ') || trimmed.startsWith('- [X] ')) {
-        _insertNode(document, af.todoListNode(text: trimmed.substring(6), checked: true));
-      } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-        _insertNode(document, af.bulletedListNode(text: trimmed.substring(2)));
-      } else if (RegExp(r'^\d+\.\s').hasMatch(trimmed)) {
-        final text = trimmed.replaceFirst(RegExp(r'^\d+\.\s'), '');
-        _insertNode(document, af.numberedListNode(text: text));
-      } else if (trimmed.startsWith('> ')) {
-        _insertNode(document, af.quoteNode(text: trimmed.substring(2)));
-      } else {
-        _insertNode(document, af.paragraphNode(text: trimmed));
-      }
-    }
-    
-    return document;
-  }
-
-  void _insertNode(af.Document document, af.Node node) {
-    final root = document.root;
-    root.insert(root.children.length, [node]);
-  }
-
-  String _documentToMarkdown(af.Document document) {
-    final buffer = StringBuffer();
-    final root = document.root;
-    
-    for (final node in root.children) {
-      final type = node.type;
-      final delta = node.delta;
-      final text = delta?.toPlainText() ?? '';
-      
-      switch (type) {
-        case 'heading':
-          final level = node.attributes['level'] ?? 1;
-          buffer.writeln('${"#" * level} $text');
-          break;
-        case 'todo_list':
-          final checked = node.attributes['checked'] ?? false;
-          buffer.writeln('- [${checked ? "x" : " "}] $text');
-          break;
-        case 'bulleted_list':
-          buffer.writeln('- $text');
-          break;
-        case 'numbered_list':
-          buffer.writeln('1. $text');
-          break;
-        case 'quote':
-          buffer.writeln('> $text');
-          break;
-        case 'code_block':
-          buffer.writeln('```');
-          buffer.writeln(text);
-          buffer.writeln('```');
-          break;
-        case 'paragraph':
-        default:
-          if (text.isNotEmpty) {
-            buffer.writeln(text);
-          } else {
-            buffer.writeln();
-          }
-          break;
-      }
-    }
-    
-    return buffer.toString().trim();
   }
 
   @override
@@ -211,33 +114,35 @@ class MarkdownEditorState extends State<MarkdownEditor>
       _note = widget.note;
       _textController.text = _note.body;
       _titleTextController.text = _note.title ?? "";
-      // Update AppFlowy editor
-      _initAppFlowyEditor();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    var settings = context.watch<AppConfig>();
-    
-    // Use AppFlowy Editor in edit mode if experimental feature is enabled
-    Widget editor;
-    if (widget.editMode && settings.experimentalMarkdownToolbar) {
-      editor = _buildAppFlowyEditor();
-    } else {
-      editor = _buildPlainTextEditor();
-    }
+    var editor = EditorScrollView(
+      scrollController: _scrollController,
+      child: Column(
+        children: <Widget>[
+          NoteTitleEditor(
+            _titleTextController,
+            _noteTitleTextChanged,
+          ),
+          NoteBodyEditor(
+            key: _bodyEditorKey,
+            textController: _textController,
+            autofocus: widget.editMode,
+            onChanged: _noteTextChanged,
+          ),
+        ],
+      ),
+    );
 
+    var settings = context.watch<AppConfig>();
     Widget? markdownToolbar;
     if (settings.experimentalMarkdownToolbar) {
-      if (widget.editMode) {
-        // AppFlowy has its own toolbar
-        markdownToolbar = null;
-      } else {
-        markdownToolbar = MarkdownToolBar(
-          textController: _textController,
-        );
-      }
+      markdownToolbar = MarkdownToolBar(
+        textController: _textController,
+      );
     }
 
     return gj.EditorScaffold(
@@ -257,185 +162,10 @@ class MarkdownEditorState extends State<MarkdownEditor>
     );
   }
 
-  Widget _buildPlainTextEditor() {
-    return EditorScrollView(
-      scrollController: _scrollController,
-      child: Column(
-        children: <Widget>[
-          NoteTitleEditor(
-            _titleTextController,
-            _noteTitleTextChanged,
-          ),
-          NoteBodyEditor(
-            key: _bodyEditorKey,
-            textController: _textController,
-            autofocus: widget.editMode,
-            onChanged: _noteTextChanged,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAppFlowyEditor() {
-    if (_appFlowyEditorState == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return Column(
-      children: [
-        // Title editor (keep plain text for title)
-        NoteTitleEditor(
-          _titleTextController,
-          _noteTitleTextChanged,
-        ),
-        // AppFlowy Editor for body
-        Expanded(
-          child: af.AppFlowyEditor.standard(
-            editorState: _appFlowyEditorState!,
-            editorStyle: af.EditorStyle.desktop(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            ),
-            header: _buildAppFlowyToolbar(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAppFlowyToolbar() {
-    if (_appFlowyEditorState == null) return const SizedBox.shrink();
-    
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            // Bold
-            IconButton(
-              icon: const Icon(Icons.format_bold),
-              onPressed: () => _appFlowyEditorState!.toggleAttribute(af.AppFlowyRichTextKeys.bold),
-              tooltip: 'Bold',
-            ),
-            // Italic
-            IconButton(
-              icon: const Icon(Icons.format_italic),
-              onPressed: () => _appFlowyEditorState!.toggleAttribute(af.AppFlowyRichTextKeys.italic),
-              tooltip: 'Italic',
-            ),
-            // Underline
-            IconButton(
-              icon: const Icon(Icons.format_underline),
-              onPressed: () => _appFlowyEditorState!.toggleAttribute(af.AppFlowyRichTextKeys.underline),
-              tooltip: 'Underline',
-            ),
-            const VerticalDivider(),
-            // H1
-            IconButton(
-              icon: const Text('H1', style: TextStyle(fontWeight: FontWeight.bold)),
-              onPressed: () => _appFlowyEditorState!.formatNode(
-                af.FormatStyle.heading,
-                af.LevelAttribute(level: 1),
-              ),
-              tooltip: 'Heading 1',
-            ),
-            // H2
-            IconButton(
-              icon: const Text('H2', style: TextStyle(fontWeight: FontWeight.bold)),
-              onPressed: () => _appFlowyEditorState!.formatNode(
-                af.FormatStyle.heading,
-                af.LevelAttribute(level: 2),
-              ),
-              tooltip: 'Heading 2',
-            ),
-            // H3
-            IconButton(
-              icon: const Text('H3', style: TextStyle(fontWeight: FontWeight.bold)),
-              onPressed: () => _appFlowyEditorState!.formatNode(
-                af.FormatStyle.heading,
-                af.LevelAttribute(level: 3),
-              ),
-              tooltip: 'Heading 3',
-            ),
-            const VerticalDivider(),
-            // Bullet list
-            IconButton(
-              icon: const Icon(Icons.format_list_bulleted),
-              onPressed: () => _appFlowyEditorState!.formatNode(
-                af.FormatStyle.bulletedList,
-                null,
-              ),
-              tooltip: 'Bullet List',
-            ),
-            // Numbered list
-            IconButton(
-              icon: const Icon(Icons.format_list_numbered),
-              onPressed: () => _appFlowyEditorState!.formatNode(
-                af.FormatStyle.numberedList,
-                null,
-              ),
-              tooltip: 'Numbered List',
-            ),
-            // Todo list
-            IconButton(
-              icon: const Icon(Icons.check_box_outlined),
-              onPressed: () => _appFlowyEditorState!.formatNode(
-                af.FormatStyle.todoList,
-                null,
-              ),
-              tooltip: 'Todo List',
-            ),
-            const VerticalDivider(),
-            // Quote
-            IconButton(
-              icon: const Icon(Icons.format_quote),
-              onPressed: () => _appFlowyEditorState!.formatNode(
-                af.FormatStyle.quote,
-                null,
-              ),
-              tooltip: 'Quote',
-            ),
-            // Code
-            IconButton(
-              icon: const Icon(Icons.code),
-              onPressed: () => _appFlowyEditorState!.toggleAttribute(af.AppFlowyRichTextKeys.code),
-              tooltip: 'Code',
-            ),
-            const VerticalDivider(),
-            // Undo
-            IconButton(
-              icon: const Icon(Icons.undo),
-              onPressed: () => _appFlowyEditorState!.undo(),
-              tooltip: 'Undo',
-            ),
-            // Redo
-            IconButton(
-              icon: const Icon(Icons.redo),
-              onPressed: () => _appFlowyEditorState!.redo(),
-              tooltip: 'Redo',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Note getNote() {
-    String body;
-    if (widget.editMode && _appFlowyEditorState != null) {
-      // Get content from AppFlowy Editor
-      body = _documentToMarkdown(_appFlowyEditorState!.document);
-    } else {
-      body = _textController.text.trim();
-    }
-    
     return _note.copyWith(
-      body: body,
+      body: _textController.text.trim(),
       title: _titleTextController.text.trim(),
       type: NoteType.Unknown,
     );
@@ -491,29 +221,16 @@ class MarkdownEditorState extends State<MarkdownEditor>
   Future<void> addImage(String filePath) async {
     try {
       var image = await core.Image.copyIntoFs(_note.parent, filePath);
-      
-      if (widget.editMode && _appFlowyEditorState != null) {
-        // Insert image into AppFlowy Editor
-        final transaction = _appFlowyEditorState!.transaction;
-        transaction.insertNode(
-          _appFlowyEditorState!.selection?.end.path ?? [0],
-          af.imageNode(url: image.filePath),
-        );
-        await _appFlowyEditorState!.apply(transaction);
-        setState(() {
-          _noteModified = true;
-        });
-      } else {
-        var ts = insertImage(
-          TextEditorState.fromValue(_textController.value),
-          image,
-          _note.fileFormat,
-        );
-        setState(() {
-          _textController.value = ts.toValue();
-          _noteModified = true;
-        });
-      }
+      var ts = insertImage(
+        TextEditorState.fromValue(_textController.value),
+        image,
+        _note.fileFormat,
+      );
+
+      setState(() {
+        _textController.value = ts.toValue();
+        _noteModified = true;
+      });
     } catch (ex) {
       showErrorSnackbar(context, ex);
     }
@@ -523,25 +240,17 @@ class MarkdownEditorState extends State<MarkdownEditor>
   bool get noteModified => _noteModified;
 
   Future<void> _undo() async {
-    if (widget.editMode && _appFlowyEditorState != null) {
-      _appFlowyEditorState!.undo();
-    } else {
-      var es = _undoRedoStack.undo();
-      setState(() {
-        _textController.value = es.toValue();
-      });
-    }
+    var es = _undoRedoStack.undo();
+    setState(() {
+      _textController.value = es.toValue();
+    });
   }
 
   Future<void> _redo() async {
-    if (widget.editMode && _appFlowyEditorState != null) {
-      _appFlowyEditorState!.redo();
-    } else {
-      var es = _undoRedoStack.redo();
-      setState(() {
-        _textController.value = es.toValue();
-      });
-    }
+    var es = _undoRedoStack.redo();
+    setState(() {
+      _textController.value = es.toValue();
+    });
   }
 
   @override
