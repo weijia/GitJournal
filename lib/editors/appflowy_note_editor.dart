@@ -365,7 +365,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     final sel = _getSelection();
     final insertPath = sel?.end.path ?? _getLastPath();
 
-    debugPrint('Inserting table ${rows}x${cols} at path $insertPath');
+    debugPrint('Inserting table ${rows}x$cols at path $insertPath');
 
     // Build table data with empty strings
     final tableData = List.generate(
