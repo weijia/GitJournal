@@ -187,14 +187,10 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   Widget _buildToolbar(ColorScheme colorScheme) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        border: Border(
-          bottom: BorderSide(
-            color: colorScheme.outlineVariant.withOpacity(0.5),
-          ),
-        ),
-      ),
+      color: colorScheme.surfaceContainerLow,  // Solid color to capture gestures
+      child: Material(  // Add Material widget for proper gesture handling
+        color: Colors.transparent,
+        child:
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
@@ -372,6 +368,8 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     final selection = _editorState.selection;
     if (selection == null) return;
 
+    debugPrint('Inserting table: ${rows}x${cols} at path: ${selection.end.path}');
+
     // Build table data with empty strings
     final tableData = List.generate(
       cols,
@@ -381,9 +379,22 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     final tableNode = TableNode.fromList(tableData);
     
     final transaction = _editorState.transaction;
-    transaction.insertNode(selection.end.path, tableNode.node);
+    
+    // Get current node at selection
+    final currentNode = _editorState.getNodeAtPath(selection.end.path);
+    
+    if (currentNode != null && currentNode.delta != null && currentNode.delta!.isEmpty) {
+      // Replace empty node with table
+      transaction.deleteNode(currentNode);
+      transaction.insertNode(selection.end.path, tableNode.node);
+    } else {
+      // Insert after current node
+      final nextPath = selection.end.path.next;
+      transaction.insertNode(nextPath, tableNode.node);
+    }
     
     _editorState.apply(transaction);
+    debugPrint('Table inserted successfully');
   }
 
   @override
