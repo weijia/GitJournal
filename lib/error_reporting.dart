@@ -23,7 +23,7 @@ Future<void> initSentry() async {
   }
   try {
     final sentryDsn = Env.sentry;
-    if (sentryDsn == null || sentryDsn.isEmpty) {
+    if (sentryDsn.isEmpty) {
       Log.w("Sentry DSN not configured, skipping init");
       return;
     }
