@@ -124,7 +124,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
             ),
           ),
           const Divider(height: 1),
-          if (widget.editMode) _buildToolbar(colorScheme),
+          _buildToolbar(colorScheme),  // Always show toolbar
           const Divider(height: 1),
           Expanded(
             child: _buildEditor(colorScheme),
@@ -142,8 +142,8 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   Widget _buildEditor(ColorScheme colorScheme) {
     return AppFlowyEditor(
       editorState: _editorState,
-      editable: widget.editMode,
-      autoFocus: widget.editMode,
+      editable: true,  // Always editable in AppFlowy mode
+      autoFocus: true,
       editorStyle: EditorStyle.desktop(
         padding: const EdgeInsets.all(16),
         cursorColor: colorScheme.primary,
