@@ -124,7 +124,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
             ),
           ),
           const Divider(height: 1),
-          _buildToolbar(colorScheme),  // Always show toolbar
+          _buildToolbar(colorScheme),
           const Divider(height: 1),
           Expanded(
             child: _buildEditor(colorScheme),
@@ -142,7 +142,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   Widget _buildEditor(ColorScheme colorScheme) {
     return AppFlowyEditor(
       editorState: _editorState,
-      editable: true,  // Always editable in AppFlowy mode
+      editable: true,
       autoFocus: true,
       editorStyle: EditorStyle.desktop(
         padding: const EdgeInsets.all(16),
@@ -185,86 +185,85 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   }
 
   Widget _buildToolbar(ColorScheme colorScheme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      color: colorScheme.surfaceContainerLow,  // Solid color to capture gestures
-      child: Material(  // Add Material widget for proper gesture handling
-        color: Colors.transparent,
-        child:
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            _buildToolbarButton(
-              icon: Icons.title,
-              tooltip: 'Heading H1',
-              onPressed: () => _insertHeading(1),
-            ),
-            _buildToolbarButton(
-              icon: Icons.format_size,
-              tooltip: 'Heading H2',
-              onPressed: () => _insertHeading(2),
-            ),
-            _buildToolbarButton(
-              icon: Icons.format_size,
-              tooltip: 'Heading H3',
-              onPressed: () => _insertHeading(3),
-              iconSize: 18,
-            ),
-            _buildDivider(colorScheme),
-            _buildToolbarButton(
-              icon: Icons.format_bold,
-              tooltip: 'Bold',
-              onPressed: _toggleBold,
-            ),
-            _buildToolbarButton(
-              icon: Icons.format_italic,
-              tooltip: 'Italic',
-              onPressed: _toggleItalic,
-            ),
-            _buildToolbarButton(
-              icon: Icons.format_underlined,
-              tooltip: 'Underline',
-              onPressed: _toggleUnderline,
-            ),
-            _buildToolbarButton(
-              icon: Icons.strikethrough_s,
-              tooltip: 'Strikethrough',
-              onPressed: _toggleStrikethrough,
-            ),
-            _buildDivider(colorScheme),
-            _buildToolbarButton(
-              icon: Icons.format_list_bulleted,
-              tooltip: 'Bullet List',
-              onPressed: _insertBulletList,
-            ),
-            _buildToolbarButton(
-              icon: Icons.format_list_numbered,
-              tooltip: 'Numbered List',
-              onPressed: _insertNumberedList,
-            ),
-            _buildToolbarButton(
-              icon: Icons.check_box_outlined,
-              tooltip: 'Todo List',
-              onPressed: _insertTodoList,
-            ),
-            _buildDivider(colorScheme),
-            _buildToolbarButton(
-              icon: Icons.format_quote,
-              tooltip: 'Quote',
-              onPressed: _insertQuote,
-            ),
-            _buildToolbarButton(
-              icon: Icons.code,
-              tooltip: 'Code Block',
-              onPressed: _insertCodeBlock,
-            ),
-            _buildToolbarButton(
-              icon: Icons.table_chart,
-              tooltip: 'Insert Table',
-              onPressed: _showInsertTableDialog,
-            ),
-          ],
+    return Material(
+      color: colorScheme.surfaceContainerLow,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _buildToolbarButton(
+                icon: Icons.title,
+                tooltip: 'Heading H1',
+                onPressed: () => _insertHeading(1),
+              ),
+              _buildToolbarButton(
+                icon: Icons.format_size,
+                tooltip: 'Heading H2',
+                onPressed: () => _insertHeading(2),
+              ),
+              _buildToolbarButton(
+                icon: Icons.format_size,
+                tooltip: 'Heading H3',
+                onPressed: () => _insertHeading(3),
+                iconSize: 18,
+              ),
+              _buildDivider(colorScheme),
+              _buildToolbarButton(
+                icon: Icons.format_bold,
+                tooltip: 'Bold',
+                onPressed: _toggleBold,
+              ),
+              _buildToolbarButton(
+                icon: Icons.format_italic,
+                tooltip: 'Italic',
+                onPressed: _toggleItalic,
+              ),
+              _buildToolbarButton(
+                icon: Icons.format_underlined,
+                tooltip: 'Underline',
+                onPressed: _toggleUnderline,
+              ),
+              _buildToolbarButton(
+                icon: Icons.strikethrough_s,
+                tooltip: 'Strikethrough',
+                onPressed: _toggleStrikethrough,
+              ),
+              _buildDivider(colorScheme),
+              _buildToolbarButton(
+                icon: Icons.format_list_bulleted,
+                tooltip: 'Bullet List',
+                onPressed: _insertBulletList,
+              ),
+              _buildToolbarButton(
+                icon: Icons.format_list_numbered,
+                tooltip: 'Numbered List',
+                onPressed: _insertNumberedList,
+              ),
+              _buildToolbarButton(
+                icon: Icons.check_box_outlined,
+                tooltip: 'Todo List',
+                onPressed: _insertTodoList,
+              ),
+              _buildDivider(colorScheme),
+              _buildToolbarButton(
+                icon: Icons.format_quote,
+                tooltip: 'Quote',
+                onPressed: _insertQuote,
+              ),
+              _buildToolbarButton(
+                icon: Icons.code,
+                tooltip: 'Code Block',
+                onPressed: _insertCodeBlock,
+              ),
+              _buildToolbarButton(
+                icon: Icons.table_chart,
+                tooltip: 'Insert Table',
+                onPressed: _showInsertTableDialog,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -294,25 +293,19 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     );
   }
 
-  // Fixed: Proper heading insertion using transaction
   void _insertHeading(int level) {
     final selection = _editorState.selection;
     if (selection == null) return;
 
     final transaction = _editorState.transaction;
-    
-    // Use formatNode to convert current node to heading
     final node = _editorState.getNodeAtPath(selection.start.path);
     if (node != null) {
       final text = node.delta?.toPlainText() ?? '';
-      
-      // Delete current node and insert heading
       transaction.deleteNode(node);
       transaction.insertNode(
         selection.start.path,
         headingNode(level: level, text: text),
       );
-      
       _editorState.apply(transaction);
     }
   }
@@ -353,7 +346,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     _editorState.toggleAttribute(BuiltInAttributeKey.code);
   }
 
-  // New: Insert table dialog
   void _showInsertTableDialog() {
     showDialog(
       context: context,
@@ -363,14 +355,12 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     );
   }
 
-  // New: Insert table using TableNode.fromList
   void _insertTable(int rows, int cols) {
     final selection = _editorState.selection;
     if (selection == null) return;
 
-    debugPrint('Inserting table: ${rows}x${cols} at path: ${selection.end.path}');
+    debugPrint('Inserting table: ${rows}x${cols}');
 
-    // Build table data with empty strings
     final tableData = List.generate(
       cols,
       (_) => List.generate(rows, (_) => ''),
@@ -379,22 +369,18 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     final tableNode = TableNode.fromList(tableData);
     
     final transaction = _editorState.transaction;
-    
-    // Get current node at selection
     final currentNode = _editorState.getNodeAtPath(selection.end.path);
     
     if (currentNode != null && currentNode.delta != null && currentNode.delta!.isEmpty) {
-      // Replace empty node with table
       transaction.deleteNode(currentNode);
       transaction.insertNode(selection.end.path, tableNode.node);
     } else {
-      // Insert after current node
       final nextPath = selection.end.path.next;
       transaction.insertNode(nextPath, tableNode.node);
     }
     
     _editorState.apply(transaction);
-    debugPrint('Table inserted successfully');
+    debugPrint('Table inserted');
   }
 
   @override
@@ -422,7 +408,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   void scrollToResult(String text, int num) {}
 }
 
-// Dialog for inserting table
 class _InsertTableDialog extends StatefulWidget {
   final Function(int rows, int cols) onInsert;
 
