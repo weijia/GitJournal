@@ -320,13 +320,17 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       return;
     }
 
-    // Restore selection before toggling
+    // Restore selection first, then toggle after frame renders
     _editorState.updateSelectionWithReason(
       sel,
       reason: SelectionUpdateReason.uiEvent,
     );
-    _editorState.toggleAttribute(attributeKey);
-    debugPrint('Toggled $attributeKey at ${sel.start.path}');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _editorState.toggleAttribute(attributeKey);
+        debugPrint('Toggled $attributeKey at ${sel.start.path}');
+      }
+    });
   }
 
   /// Insert heading - replace current node with heading node
