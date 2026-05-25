@@ -166,7 +166,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       editorStyle: EditorStyle.desktop(
         padding: const EdgeInsets.all(16),
         cursorColor: colorScheme.primary,
-        selectionColor: colorScheme.primaryContainer.withOpacity(0.4),
+        selectionColor: colorScheme.primaryContainer.withValues(alpha: 0.4),
         textStyleConfiguration: TextStyleConfiguration(
           text: TextStyle(
             color: colorScheme.onSurface,
@@ -191,7 +191,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
           ),
           code: TextStyle(
             color: colorScheme.primary,
-            backgroundColor: colorScheme.primaryContainer.withOpacity(0.3),
+            backgroundColor: colorScheme.primaryContainer.withValues(alpha: 0.3),
             fontFamily: 'monospace',
             fontSize: 14,
           ),
