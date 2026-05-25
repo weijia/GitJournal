@@ -157,11 +157,11 @@ Future<void> _captureSentryException(
   }
   try {
     await initSentry();
-    final event = (await _environmentEvent).copyWith(
-      throwable: exception,
-      breadcrumbs: breadcrumbs,
-      level: level,
-    );
+    final envEvent = await _environmentEvent;
+    envEvent.throwable = exception;
+    envEvent.breadcrumbs = breadcrumbs;
+    envEvent.level = level;
+    final event = envEvent;
 
     await Sentry.captureEvent(event, stackTrace: Trace.from(stackTrace).terse);
     return;
