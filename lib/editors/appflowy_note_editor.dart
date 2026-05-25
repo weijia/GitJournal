@@ -51,6 +51,10 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   late Note _note;
   StreamSubscription? _transactionSub;
 
+  /// Cache the last valid selection so toolbar actions can use it
+  /// even after the editor loses focus
+  Selection? _lastSelection;
+
   @override
   void initState() {
     super.initState();
@@ -61,7 +65,9 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     final document = markdownToDocument(_note.body);
     _editorState = EditorState(document: document);
 
+    // Cache selection on every change
     _transactionSub = _editorState.transactionStream.listen((_) {
+      _lastSelection = _editorState.selection;
       if (!_isModified) {
         setState(() {
           _isModified = true;
@@ -90,6 +96,19 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       final document = markdownToDocument(_note.body);
       _editorState = EditorState(document: document);
     }
+  }
+
+  /// Get a valid selection - use cached one if editor lost focus
+  Selection? _getSelection() {
+    final current = _editorState.selection;
+    if (current != null) return current;
+    return _lastSelection;
+  }
+
+  /// Get the last path in the document (for inserting at end)
+  Path _getLastPath() {
+    final node = _editorState.document.root;
+    return [node.children.length - 1];
   }
 
   @override
@@ -213,49 +232,49 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
               _buildToolbarButton(
                 icon: Icons.format_bold,
                 tooltip: 'Bold',
-                onPressed: _toggleBold,
+                onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.bold),
               ),
               _buildToolbarButton(
                 icon: Icons.format_italic,
                 tooltip: 'Italic',
-                onPressed: _toggleItalic,
+                onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.italic),
               ),
               _buildToolbarButton(
                 icon: Icons.format_underlined,
                 tooltip: 'Underline',
-                onPressed: _toggleUnderline,
+                onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.underline),
               ),
               _buildToolbarButton(
                 icon: Icons.strikethrough_s,
                 tooltip: 'Strikethrough',
-                onPressed: _toggleStrikethrough,
+                onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.strikethrough),
               ),
               _buildDivider(colorScheme),
               _buildToolbarButton(
                 icon: Icons.format_list_bulleted,
                 tooltip: 'Bullet List',
-                onPressed: _insertBulletList,
+                onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.bulletedList),
               ),
               _buildToolbarButton(
                 icon: Icons.format_list_numbered,
                 tooltip: 'Numbered List',
-                onPressed: _insertNumberedList,
+                onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.numberList),
               ),
               _buildToolbarButton(
                 icon: Icons.check_box_outlined,
                 tooltip: 'Todo List',
-                onPressed: _insertTodoList,
+                onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.checkbox),
               ),
               _buildDivider(colorScheme),
               _buildToolbarButton(
                 icon: Icons.format_quote,
                 tooltip: 'Quote',
-                onPressed: _insertQuote,
+                onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.quote),
               ),
               _buildToolbarButton(
                 icon: Icons.code,
                 tooltip: 'Code Block',
-                onPressed: _insertCodeBlock,
+                onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.code),
               ),
               _buildToolbarButton(
                 icon: Icons.table_chart,
@@ -293,57 +312,40 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     );
   }
 
-  void _insertHeading(int level) {
-    final selection = _editorState.selection;
-    if (selection == null) return;
+  /// Toggle attribute on the cached selection (works even when editor lost focus)
+  void _toggleSelectionAttribute(String attributeKey) {
+    final sel = _getSelection();
+    if (sel == null) {
+      debugPrint('No selection available for $attributeKey');
+      return;
+    }
 
     final transaction = _editorState.transaction;
-    final node = _editorState.getNodeAtPath(selection.start.path);
+    transaction.toggleAttribute(sel, attributeKey);
+    _editorState.apply(transaction);
+    debugPrint('Toggled $attributeKey at ${sel.start.path}');
+  }
+
+  /// Insert heading - replace current node with heading node
+  void _insertHeading(int level) {
+    final sel = _getSelection();
+    if (sel == null) {
+      debugPrint('No selection for heading');
+      return;
+    }
+
+    final transaction = _editorState.transaction;
+    final node = _editorState.getNodeAtPath(sel.start.path);
     if (node != null) {
       final text = node.delta?.toPlainText() ?? '';
       transaction.deleteNode(node);
       transaction.insertNode(
-        selection.start.path,
+        sel.start.path,
         headingNode(level: level, text: text),
       );
       _editorState.apply(transaction);
+      debugPrint('Inserted H$level heading');
     }
-  }
-
-  void _toggleBold() {
-    _editorState.toggleAttribute(BuiltInAttributeKey.bold);
-  }
-
-  void _toggleItalic() {
-    _editorState.toggleAttribute(BuiltInAttributeKey.italic);
-  }
-
-  void _toggleUnderline() {
-    _editorState.toggleAttribute(BuiltInAttributeKey.underline);
-  }
-
-  void _toggleStrikethrough() {
-    _editorState.toggleAttribute(BuiltInAttributeKey.strikethrough);
-  }
-
-  void _insertBulletList() {
-    _editorState.toggleAttribute(BuiltInAttributeKey.bulletedList);
-  }
-
-  void _insertNumberedList() {
-    _editorState.toggleAttribute(BuiltInAttributeKey.numberList);
-  }
-
-  void _insertTodoList() {
-    _editorState.toggleAttribute(BuiltInAttributeKey.checkbox);
-  }
-
-  void _insertQuote() {
-    _editorState.toggleAttribute(BuiltInAttributeKey.quote);
-  }
-
-  void _insertCodeBlock() {
-    _editorState.toggleAttribute(BuiltInAttributeKey.code);
   }
 
   void _showInsertTableDialog() {
@@ -355,32 +357,42 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     );
   }
 
+  /// Insert table using TableNode.fromList
   void _insertTable(int rows, int cols) {
-    final selection = _editorState.selection;
-    if (selection == null) return;
+    final sel = _getSelection();
+    final insertPath = sel?.end.path ?? _getLastPath();
 
-    debugPrint('Inserting table: ${rows}x${cols}');
+    debugPrint('Inserting table ${rows}x${cols} at path $insertPath');
 
+    // Build table data with empty strings
     final tableData = List.generate(
       cols,
       (_) => List.generate(rows, (_) => ''),
     );
 
     final tableNode = TableNode.fromList(tableData);
-    
+
     final transaction = _editorState.transaction;
-    final currentNode = _editorState.getNodeAtPath(selection.end.path);
-    
-    if (currentNode != null && currentNode.delta != null && currentNode.delta!.isEmpty) {
+    final currentNode = _editorState.getNodeAtPath(insertPath);
+
+    if (currentNode != null &&
+        currentNode.delta != null &&
+        currentNode.delta!.isEmpty) {
+      // Replace empty node with table
       transaction.deleteNode(currentNode);
-      transaction.insertNode(selection.end.path, tableNode.node);
+      transaction.insertNode(insertPath, tableNode.node);
     } else {
-      final nextPath = selection.end.path.next;
-      transaction.insertNode(nextPath, tableNode.node);
+      // Insert after current node
+      transaction.insertNode(insertPath.next, tableNode.node);
     }
-    
+
+    // Set selection to first cell of table
+    transaction.afterSelection = Selection.collapsed(
+      Position(path: insertPath + [0, 0], offset: 0),
+    );
+
     _editorState.apply(transaction);
-    debugPrint('Table inserted');
+    debugPrint('Table inserted successfully');
   }
 
   @override
