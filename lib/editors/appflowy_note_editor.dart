@@ -308,7 +308,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       width: 1,
       height: 24,
       margin: const EdgeInsets.symmetric(horizontal: 4),
-      color: colorScheme.outlineVariant.withOpacity(0.5),
+      color: colorScheme.outlineVariant.withValues(alpha: 0.5),
     );
   }
 
