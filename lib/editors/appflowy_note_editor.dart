@@ -320,9 +320,12 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       return;
     }
 
-    final transaction = _editorState.transaction;
-    transaction.toggleAttribute(sel, attributeKey);
-    _editorState.apply(transaction);
+    // Restore selection before toggling
+    _editorState.updateSelectionWithReason(
+      sel,
+      reason: SelectionUpdateReason.uiEvent,
+    );
+    _editorState.toggleAttribute(attributeKey);
     debugPrint('Toggled $attributeKey at ${sel.start.path}');
   }
 
