@@ -157,11 +157,12 @@ Future<void> _captureSentryException(
   }
   try {
     await initSentry();
-    final envEvent = await _environmentEvent;
-    envEvent.throwable = exception;
-    envEvent.breadcrumbs = breadcrumbs;
-    envEvent.level = level;
-    final event = envEvent;
+    // ignore: deprecated_member_use
+    final event = (await _environmentEvent).copyWith(
+      throwable: exception,
+      breadcrumbs: breadcrumbs,
+      level: level,
+    );
 
     await Sentry.captureEvent(event, stackTrace: Trace.from(stackTrace).terse);
     return;
