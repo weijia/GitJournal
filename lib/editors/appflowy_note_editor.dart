@@ -58,11 +58,9 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     _isModified = widget.noteModified;
     _titleController = TextEditingController(text: _note.title ?? '');
 
-    // Use markdownToDocument from appflowy_editor (same as obsidian-git)
     final document = markdownToDocument(_note.body);
     _editorState = EditorState(document: document);
 
-    // Listen for changes with debounced save
     _transactionSub = _editorState.transactionStream.listen((_) {
       if (!_isModified) {
         setState(() {
@@ -107,7 +105,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       parentFolder: _note.parent,
       body: Column(
         children: [
-          // Title
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TextField(
@@ -127,10 +124,8 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
             ),
           ),
           const Divider(height: 1),
-          // Toolbar
           if (widget.editMode) _buildToolbar(colorScheme),
           const Divider(height: 1),
-          // Editor - using desktop style like obsidian-git
           Expanded(
             child: _buildEditor(colorScheme),
           ),
@@ -149,7 +144,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       editorState: _editorState,
       editable: widget.editMode,
       autoFocus: widget.editMode,
-      // Use desktop style like obsidian-git
       editorStyle: EditorStyle.desktop(
         padding: const EdgeInsets.all(16),
         cursorColor: colorScheme.primary,
@@ -184,7 +178,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
           ),
         ),
       ),
-      // Use standard block component builders like obsidian-git
       blockComponentBuilders: standardBlockComponentBuilderMap,
       characterShortcutEvents: standardCharacterShortcutEvents,
       commandShortcutEvents: standardCommandShortcutEvents,
@@ -206,7 +199,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            // Headings
             _buildToolbarButton(
               icon: Icons.title,
               tooltip: 'Heading H1',
@@ -224,7 +216,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
               iconSize: 18,
             ),
             _buildDivider(colorScheme),
-            // Formatting
             _buildToolbarButton(
               icon: Icons.format_bold,
               tooltip: 'Bold',
@@ -246,7 +237,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
               onPressed: _toggleStrikethrough,
             ),
             _buildDivider(colorScheme),
-            // Lists
             _buildToolbarButton(
               icon: Icons.format_list_bulleted,
               tooltip: 'Bullet List',
@@ -263,7 +253,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
               onPressed: _insertTodoList,
             ),
             _buildDivider(colorScheme),
-            // Blocks
             _buildToolbarButton(
               icon: Icons.format_quote,
               tooltip: 'Quote',
@@ -273,6 +262,11 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
               icon: Icons.code,
               tooltip: 'Code Block',
               onPressed: _insertCodeBlock,
+            ),
+            _buildToolbarButton(
+              icon: Icons.table_chart,
+              tooltip: 'Insert Table',
+              onPressed: _showInsertTableDialog,
             ),
           ],
         ),
@@ -304,21 +298,27 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     );
   }
 
-  // Toolbar actions
+  // Fixed: Proper heading insertion using transaction
   void _insertHeading(int level) {
     final selection = _editorState.selection;
     if (selection == null) return;
 
-    final node = _editorState.getNodeAtPath(selection.end.path);
-    if (node == null) return;
-
     final transaction = _editorState.transaction;
-    transaction.insertNode(
-      selection.end.path,
-      headingNode(level: level, text: ''),
-    );
-    transaction.deleteNode(node);
-    _editorState.apply(transaction);
+    
+    // Use formatNode to convert current node to heading
+    final node = _editorState.getNodeAtPath(selection.start.path);
+    if (node != null) {
+      final text = node.delta?.toPlainText() ?? '';
+      
+      // Delete current node and insert heading
+      transaction.deleteNode(node);
+      transaction.insertNode(
+        selection.start.path,
+        headingNode(level: level, text: text),
+      );
+      
+      _editorState.apply(transaction);
+    }
   }
 
   void _toggleBold() {
@@ -357,9 +357,37 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     _editorState.toggleAttribute(BuiltInAttributeKey.code);
   }
 
+  // New: Insert table dialog
+  void _showInsertTableDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => _InsertTableDialog(
+        onInsert: (rows, cols) => _insertTable(rows, cols),
+      ),
+    );
+  }
+
+  // New: Insert table using TableNode.fromList
+  void _insertTable(int rows, int cols) {
+    final selection = _editorState.selection;
+    if (selection == null) return;
+
+    // Build table data with empty strings
+    final tableData = List.generate(
+      cols,
+      (_) => List.generate(rows, (_) => ''),
+    );
+
+    final tableNode = TableNode.fromList(tableData);
+    
+    final transaction = _editorState.transaction;
+    transaction.insertNode(selection.end.path, tableNode.node);
+    
+    _editorState.apply(transaction);
+  }
+
   @override
   Note getNote() {
-    // Use documentToMarkdown from appflowy_editor
     final body = documentToMarkdown(_editorState.document);
     return _note.copyWith(
       body: body,
@@ -372,9 +400,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   bool get noteModified => _isModified;
 
   @override
-  Future<void> addImage(String filePath) async {
-    // Image insertion not yet supported
-  }
+  Future<void> addImage(String filePath) async {}
 
   @override
   gj.SearchInfo search(String? text) {
@@ -382,7 +408,87 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   }
 
   @override
-  void scrollToResult(String text, int num) {
-    // Search scroll not yet supported
+  void scrollToResult(String text, int num) {}
+}
+
+// Dialog for inserting table
+class _InsertTableDialog extends StatefulWidget {
+  final Function(int rows, int cols) onInsert;
+
+  const _InsertTableDialog({required this.onInsert});
+
+  @override
+  State<_InsertTableDialog> createState() => _InsertTableDialogState();
+}
+
+class _InsertTableDialogState extends State<_InsertTableDialog> {
+  int _rows = 3;
+  int _cols = 3;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Insert Table'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const Text('Rows:'),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Slider(
+                  value: _rows.toDouble(),
+                  min: 1,
+                  max: 10,
+                  divisions: 9,
+                  label: _rows.toString(),
+                  onChanged: (value) {
+                    setState(() {
+                      _rows = value.round();
+                    });
+                  },
+                ),
+              ),
+              Text('$_rows'),
+            ],
+          ),
+          Row(
+            children: [
+              const Text('Cols:'),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Slider(
+                  value: _cols.toDouble(),
+                  min: 1,
+                  max: 10,
+                  divisions: 9,
+                  label: _cols.toString(),
+                  onChanged: (value) {
+                    setState(() {
+                      _cols = value.round();
+                    });
+                  },
+                ),
+              ),
+              Text('$_cols'),
+            ],
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            widget.onInsert(_rows, _cols);
+            Navigator.of(context).pop();
+          },
+          child: const Text('Insert'),
+        ),
+      ],
+    );
   }
 }
