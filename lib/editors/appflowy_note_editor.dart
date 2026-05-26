@@ -14,7 +14,6 @@ import 'package:gitjournal/editors/utils/disposable_change_notifier.dart';
 import 'package:appflowy_editor/appflowy_editor.dart';
 
 /// A standalone WYSIWYG Markdown Editor using AppFlowy Editor
-/// Based on obsidian-git implementation
 class AppFlowyNoteEditor extends StatefulWidget implements gj.Editor {
   final Note note;
   final NotesFolder parentFolder;
@@ -50,9 +49,9 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   bool _isModified = false;
   late Note _note;
   StreamSubscription? _transactionSub;
+  StreamSubscription? _selectionSub;
 
-  /// Cache the last valid selection so toolbar actions can use it
-  /// even after the editor loses focus
+  /// Cache the last valid selection
   Selection? _lastSelection;
 
   @override
@@ -65,9 +64,14 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     final document = markdownToDocument(_note.body);
     _editorState = EditorState(document: document);
 
-    // Cache selection on every change
+    // Track selection changes (more reliable than transaction stream)
+    _selectionSub = _editorState.selectionStream.listen((sel) {
+      if (sel != null) {
+        _lastSelection = sel;
+      }
+    });
+
     _transactionSub = _editorState.transactionStream.listen((_) {
-      _lastSelection = _editorState.selection;
       if (!_isModified) {
         setState(() {
           _isModified = true;
@@ -80,6 +84,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   @override
   void dispose() {
     _transactionSub?.cancel();
+    _selectionSub?.cancel();
     _titleController.dispose();
     super.dispose();
   }
@@ -101,14 +106,39 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   /// Get a valid selection - use cached one if editor lost focus
   Selection? _getSelection() {
     final current = _editorState.selection;
-    if (current != null) return current;
-    return _lastSelection;
+    if (current != null && !current.isCollapsed) return current;
+    if (_lastSelection != null) return _lastSelection;
+    return null;
   }
 
-  /// Get the last path in the document (for inserting at end)
+  /// Get the last path in the document
   Path _getLastPath() {
     final node = _editorState.document.root;
     return [node.children.length - 1];
+  }
+
+  /// Find the nearest table node from the current selection
+  Node? _findTableNode(Selection? sel) {
+    final s = sel ?? _lastSelection;
+    if (s == null) return null;
+    for (int i = s.start.path.length - 1; i >= 0; i--) {
+      final node = _editorState.getNodeAtPath(s.start.path.sublist(0, i + 1));
+      if (node != null && node.type == TableBlockKeys.type) {
+        return node;
+      }
+    }
+    return null;
+  }
+
+  /// Get row and column position from current selection in a table
+  MapEntry<int, int>? _getTableCellPosition(Selection? sel) {
+    final s = sel ?? _lastSelection;
+    if (s == null) return null;
+    // Path structure: [..., tableIndex, colIndex, rowIndex]
+    if (s.start.path.length < 3) return null;
+    final colIndex = s.start.path[s.start.path.length - 2];
+    final rowIndex = s.start.path[s.start.path.length - 1];
+    return MapEntry(rowIndex, colIndex);
   }
 
   @override
@@ -204,6 +234,8 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   }
 
   Widget _buildToolbar(ColorScheme colorScheme) {
+    final isInTable = _findTableNode(null) != null;
+
     return Material(
       color: colorScheme.surfaceContainerLow,
       child: Container(
@@ -211,81 +243,141 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-            children: [
-              _buildToolbarButton(
-                icon: Icons.title,
-                tooltip: 'Heading H1',
-                onPressed: () => _insertHeading(1),
-              ),
-              _buildToolbarButton(
-                icon: Icons.format_size,
-                tooltip: 'Heading H2',
-                onPressed: () => _insertHeading(2),
-              ),
-              _buildToolbarButton(
-                icon: Icons.format_size,
-                tooltip: 'Heading H3',
-                onPressed: () => _insertHeading(3),
-                iconSize: 18,
-              ),
-              _buildDivider(colorScheme),
-              _buildToolbarButton(
-                icon: Icons.format_bold,
-                tooltip: 'Bold',
-                onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.bold),
-              ),
-              _buildToolbarButton(
-                icon: Icons.format_italic,
-                tooltip: 'Italic',
-                onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.italic),
-              ),
-              _buildToolbarButton(
-                icon: Icons.format_underlined,
-                tooltip: 'Underline',
-                onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.underline),
-              ),
-              _buildToolbarButton(
-                icon: Icons.strikethrough_s,
-                tooltip: 'Strikethrough',
-                onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.strikethrough),
-              ),
-              _buildDivider(colorScheme),
-              _buildToolbarButton(
-                icon: Icons.format_list_bulleted,
-                tooltip: 'Bullet List',
-                onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.bulletedList),
-              ),
-              _buildToolbarButton(
-                icon: Icons.format_list_numbered,
-                tooltip: 'Numbered List',
-                onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.numberList),
-              ),
-              _buildToolbarButton(
-                icon: Icons.check_box_outlined,
-                tooltip: 'Todo List',
-                onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.checkbox),
-              ),
-              _buildDivider(colorScheme),
-              _buildToolbarButton(
-                icon: Icons.format_quote,
-                tooltip: 'Quote',
-                onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.quote),
-              ),
-              _buildToolbarButton(
-                icon: Icons.code,
-                tooltip: 'Code Block',
-                onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.code),
-              ),
-              _buildToolbarButton(
-                icon: Icons.table_chart,
-                tooltip: 'Insert Table',
-                onPressed: _showInsertTableDialog,
-              ),
-            ],
+            children: isInTable
+                ? _buildTableToolbar(colorScheme)
+                : _buildNormalToolbar(colorScheme),
           ),
         ),
       ),
     );
+  }
+
+  List<Widget> _buildNormalToolbar(ColorScheme colorScheme) {
+    return [
+      _buildToolbarButton(
+        icon: Icons.title,
+        tooltip: 'Heading H1',
+        onPressed: () => _insertHeading(1),
+      ),
+      _buildToolbarButton(
+        icon: Icons.format_size,
+        tooltip: 'Heading H2',
+        onPressed: () => _insertHeading(2),
+      ),
+      _buildToolbarButton(
+        icon: Icons.format_size,
+        tooltip: 'Heading H3',
+        onPressed: () => _insertHeading(3),
+        iconSize: 18,
+      ),
+      _buildDivider(colorScheme),
+      _buildToolbarButton(
+        icon: Icons.format_bold,
+        tooltip: 'Bold',
+        onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.bold),
+      ),
+      _buildToolbarButton(
+        icon: Icons.format_italic,
+        tooltip: 'Italic',
+        onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.italic),
+      ),
+      _buildToolbarButton(
+        icon: Icons.format_underlined,
+        tooltip: 'Underline',
+        onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.underline),
+      ),
+      _buildToolbarButton(
+        icon: Icons.strikethrough_s,
+        tooltip: 'Strikethrough',
+        onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.strikethrough),
+      ),
+      _buildDivider(colorScheme),
+      _buildToolbarButton(
+        icon: Icons.format_list_bulleted,
+        tooltip: 'Bullet List',
+        onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.bulletedList),
+      ),
+      _buildToolbarButton(
+        icon: Icons.format_list_numbered,
+        tooltip: 'Numbered List',
+        onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.numberList),
+      ),
+      _buildToolbarButton(
+        icon: Icons.check_box_outlined,
+        tooltip: 'Todo List',
+        onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.checkbox),
+      ),
+      _buildDivider(colorScheme),
+      _buildToolbarButton(
+        icon: Icons.format_quote,
+        tooltip: 'Quote',
+        onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.quote),
+      ),
+      _buildToolbarButton(
+        icon: Icons.code,
+        tooltip: 'Code Block',
+        onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.code),
+      ),
+      _buildToolbarButton(
+        icon: Icons.table_chart,
+        tooltip: 'Insert Table',
+        onPressed: _showInsertTableDialog,
+      ),
+    ];
+  }
+
+  List<Widget> _buildTableToolbar(ColorScheme colorScheme) {
+    return [
+      _buildToolbarButton(
+        icon: Icons.arrow_back,
+        tooltip: 'Back to Editor',
+        onPressed: () {
+          // Move selection out of table to show normal toolbar
+          final sel = _getSelection();
+          if (sel != null) {
+            final tableNode = _findTableNode(sel);
+            if (tableNode != null) {
+              final tablePath = _editorState.getNodeAtPath(sel.start.path);
+              // Just update state to trigger rebuild - toolbar will switch
+              setState(() {});
+            }
+          }
+        },
+      ),
+      _buildDivider(colorScheme),
+      _buildToolbarButton(
+        icon: Icons.add,
+        tooltip: 'Add Row Below',
+        onPressed: () => _tableAddRow(),
+      ),
+      _buildToolbarButton(
+        icon: Icons.add_circle_outline,
+        tooltip: 'Add Column Right',
+        onPressed: () => _tableAddColumn(),
+      ),
+      _buildDivider(colorScheme),
+      _buildToolbarButton(
+        icon: Icons.remove,
+        tooltip: 'Delete Row',
+        onPressed: () => _tableDeleteRow(),
+      ),
+      _buildToolbarButton(
+        icon: Icons.remove_circle_outline,
+        tooltip: 'Delete Column',
+        onPressed: () => _tableDeleteColumn(),
+      ),
+      _buildDivider(colorScheme),
+      _buildToolbarButton(
+        icon: Icons.content_copy,
+        tooltip: 'Duplicate Row',
+        onPressed: () => _tableDuplicateRow(),
+      ),
+      _buildToolbarButton(
+        icon: Icons.table_chart,
+        tooltip: 'Insert New Table',
+        onPressed: _showInsertTableDialog,
+      ),
+    ];
   }
 
   Widget _buildToolbarButton({
@@ -312,7 +404,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     );
   }
 
-  /// Toggle attribute on the cached selection (works even when editor lost focus)
+  /// Toggle attribute - works with or without text selection
   void _toggleSelectionAttribute(String attributeKey) {
     final sel = _getSelection();
     if (sel == null) {
@@ -328,7 +420,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _editorState.toggleAttribute(attributeKey);
-        debugPrint('Toggled $attributeKey at ${sel.start.path}');
+        debugPrint('Toggled $attributeKey');
       }
     });
   }
@@ -336,10 +428,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   /// Insert heading - replace current node with heading node
   void _insertHeading(int level) {
     final sel = _getSelection();
-    if (sel == null) {
-      debugPrint('No selection for heading');
-      return;
-    }
+    if (sel == null) return;
 
     final transaction = _editorState.transaction;
     final node = _editorState.getNodeAtPath(sel.start.path);
@@ -351,9 +440,10 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
         headingNode(level: level, text: text),
       );
       _editorState.apply(transaction);
-      debugPrint('Inserted H$level heading');
     }
   }
+
+  // --- Table Operations ---
 
   void _showInsertTableDialog() {
     showDialog(
@@ -364,14 +454,10 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     );
   }
 
-  /// Insert table using TableNode.fromList
   void _insertTable(int rows, int cols) {
     final sel = _getSelection();
     final insertPath = sel?.end.path ?? _getLastPath();
 
-    debugPrint('Inserting table ${rows}x$cols at path $insertPath');
-
-    // Build table data with empty strings
     final tableData = List.generate(
       cols,
       (_) => List.generate(rows, (_) => ''),
@@ -385,22 +471,102 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     if (currentNode != null &&
         currentNode.delta != null &&
         currentNode.delta!.isEmpty) {
-      // Replace empty node with table
       transaction.deleteNode(currentNode);
       transaction.insertNode(insertPath, tableNode.node);
     } else {
-      // Insert after current node
       transaction.insertNode(insertPath.next, tableNode.node);
     }
 
-    // Set selection to first cell of table
     transaction.afterSelection = Selection.collapsed(
       Position(path: insertPath + [0, 0], offset: 0),
     );
 
     _editorState.apply(transaction);
-    debugPrint('Table inserted successfully');
   }
+
+  void _tableAddRow() {
+    final tableNode = _findTableNode(null);
+    final cellPos = _getTableCellPosition(null);
+    if (tableNode == null || cellPos == null) return;
+
+    TableActions.add(
+      tableNode,
+      cellPos.key, // rowIndex
+      _editorState,
+      TableDirection.row,
+    );
+    debugPrint('Added row after ${cellPos.key}');
+  }
+
+  void _tableAddColumn() {
+    final tableNode = _findTableNode(null);
+    final cellPos = _getTableCellPosition(null);
+    if (tableNode == null || cellPos == null) return;
+
+    TableActions.add(
+      tableNode,
+      cellPos.value, // colIndex
+      _editorState,
+      TableDirection.col,
+    );
+    debugPrint('Added column after ${cellPos.value}');
+  }
+
+  void _tableDeleteRow() {
+    final tableNode = _findTableNode(null);
+    final cellPos = _getTableCellPosition(null);
+    if (tableNode == null || cellPos == null) return;
+
+    final table = TableNode(node: tableNode);
+    if (table.rowsLen <= 1) {
+      debugPrint('Cannot delete the last row');
+      return;
+    }
+
+    TableActions.delete(
+      tableNode,
+      cellPos.key,
+      _editorState,
+      TableDirection.row,
+    );
+    debugPrint('Deleted row ${cellPos.key}');
+  }
+
+  void _tableDeleteColumn() {
+    final tableNode = _findTableNode(null);
+    final cellPos = _getTableCellPosition(null);
+    if (tableNode == null || cellPos == null) return;
+
+    final table = TableNode(node: tableNode);
+    if (table.colsLen <= 1) {
+      debugPrint('Cannot delete the last column');
+      return;
+    }
+
+    TableActions.delete(
+      tableNode,
+      cellPos.value,
+      _editorState,
+      TableDirection.col,
+    );
+    debugPrint('Deleted column ${cellPos.value}');
+  }
+
+  void _tableDuplicateRow() {
+    final tableNode = _findTableNode(null);
+    final cellPos = _getTableCellPosition(null);
+    if (tableNode == null || cellPos == null) return;
+
+    TableActions.duplicate(
+      tableNode,
+      cellPos.key,
+      _editorState,
+      TableDirection.row,
+    );
+    debugPrint('Duplicated row ${cellPos.key}');
+  }
+
+  // --- Editor State ---
 
   @override
   Note getNote() {
