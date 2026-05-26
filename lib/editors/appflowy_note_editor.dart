@@ -14,7 +14,6 @@ import 'package:gitjournal/editors/utils/disposable_change_notifier.dart';
 import 'package:appflowy_editor/appflowy_editor.dart';
 
 /// A standalone WYSIWYG Markdown Editor using AppFlowy Editor
-# Build 54
 class AppFlowyNoteEditor extends StatefulWidget implements gj.Editor {
   final Note note;
   final NotesFolder parentFolder;
