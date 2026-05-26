@@ -53,6 +53,8 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   bool _isModified = false;
   late Note _note;
   StreamSubscription? _transactionSub;
+  StreamSubscription? _selectionSub;
+  bool _isInTable = false;
 
   @override
   void initState() {
@@ -72,11 +74,25 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
         notifyListeners();
       }
     });
+
+    // Track selection changes to update toolbar
+    _selectionSub = _editorState.selectionStream.listen((_) {
+      _updateTableState();
+    });
+  }
+
+  void _updateTableState() {
+    final wasInTable = _isInTable;
+    _isInTable = _isSelectionInTable();
+    if (wasInTable != _isInTable) {
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
     _transactionSub?.cancel();
+    _selectionSub?.cancel();
     _titleController.dispose();
     super.dispose();
   }
@@ -226,7 +242,8 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   }
 
   Widget _buildToolbar(ColorScheme colorScheme) {
-    final isInTable = _isSelectionInTable();
+    // Use tracked state instead of checking on every build
+    final isInTable = _isInTable;
 
     return Material(
       color: colorScheme.surfaceContainerLow,
