@@ -4,6 +4,10 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+// TAG: AppFlowy Editor Support
+// Features: WYSIWYG editing, Tables, Bullet/Numbered lists, Checkboxes, Headings
+// Build: 61
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:gitjournal/core/folder/notes_folder.dart';
