@@ -329,19 +329,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   List<Widget> _buildTableToolbar(ColorScheme colorScheme) {
     return [
       _buildToolbarButton(
-        icon: Icons.arrow_back,
-        tooltip: 'Back to Editor',
-        onPressed: () {
-          // Move selection out of table to show normal toolbar
-          final sel = _getSelection();
-          if (sel != null) {
-            // Just update state to trigger rebuild - toolbar will switch
-          setState(() {});
-          }
-        },
-      ),
-      _buildDivider(colorScheme),
-      _buildToolbarButton(
         icon: Icons.add,
         tooltip: 'Add Row Below',
         onPressed: () => _tableAddRow(),
@@ -400,11 +387,11 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     );
   }
 
-  /// Toggle attribute - works with or without text selection
+  /// Toggle block attribute - works with or without text selection
   void _toggleSelectionAttribute(String attributeKey) {
     final sel = _getSelection();
     if (sel == null) {
-      debugPrint('No selection available for $attributeKey');
+      debugPrint('No selection available');
       return;
     }
 
@@ -414,18 +401,19 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       reason: SelectionUpdateReason.uiEvent,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _editorState.toggleAttribute(attributeKey);
-        debugPrint('Toggled $attributeKey');
-      }
+      if (!mounted) return;
+      _editorState.toggleAttribute(attributeKey);
+      debugPrint('Toggled $attributeKey');
     });
   }
 
   /// Insert heading - replace current node with heading node
   void _insertHeading(int level) {
-    var sel = _editorState.selection;
-    if (sel == null) sel = _lastSelection;
+    final sel = _getSelection();
     if (sel == null) return;
+
+    // Capture path before closure to avoid null safety issues
+    final selPath = sel.start.path;
 
     _editorState.updateSelectionWithReason(
       sel,
@@ -434,12 +422,12 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final transaction = _editorState.transaction;
-      final node = _editorState.getNodeAtPath(sel.start.path);
+      final node = _editorState.getNodeAtPath(selPath);
       if (node != null) {
         final text = node.delta?.toPlainText() ?? '';
         transaction.deleteNode(node);
         transaction.insertNode(
-          sel.start.path,
+          selPath,
           headingNode(level: level, text: text),
         );
         _editorState.apply(transaction);
@@ -499,7 +487,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       _editorState,
       TableDirection.row,
     );
-    debugPrint('Added row after ${cellPos.key}');
   }
 
   void _tableAddColumn() {
@@ -513,7 +500,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       _editorState,
       TableDirection.col,
     );
-    debugPrint('Added column after ${cellPos.value}');
   }
 
   void _tableDeleteRow() {
@@ -533,7 +519,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       _editorState,
       TableDirection.row,
     );
-    debugPrint('Deleted row ${cellPos.key}');
   }
 
   void _tableDeleteColumn() {
@@ -553,7 +538,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       _editorState,
       TableDirection.col,
     );
-    debugPrint('Deleted column ${cellPos.value}');
   }
 
   void _tableDuplicateRow() {
@@ -567,7 +551,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       _editorState,
       TableDirection.row,
     );
-    debugPrint('Duplicated row ${cellPos.key}');
   }
 
   // --- Editor State ---
