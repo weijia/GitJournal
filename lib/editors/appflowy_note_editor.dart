@@ -76,7 +76,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     });
 
     // Track selection changes to update toolbar
-    _selectionSub = _editorState.selectionStream.listen((_) {
+    _selectionSub = _editorState.transactionStream.listen((_) {
       _updateTableState();
     });
   }
@@ -242,8 +242,8 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   }
 
   Widget _buildToolbar(ColorScheme colorScheme) {
-    // Use tracked state instead of checking on every build
-    final isInTable = _isInTable;
+    // Check table state on every build to ensure it's up to date
+    final isInTable = _isSelectionInTable();
 
     return Material(
       color: colorScheme.surfaceContainerLow,
