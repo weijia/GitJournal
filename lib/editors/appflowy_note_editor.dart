@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-// TAG: AppFlowy Editor Support
+// TAG: AppFlowy Editor Support v2
 // Features: WYSIWYG editing, Tables, Bullet/Numbered lists, Checkboxes, Headings
 // Build: 61
 
