@@ -304,7 +304,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       _buildToolbarButton(
         icon: Icons.code,
         tooltip: 'Code Block',
-        onPressed: () => _toggleBlockType(CodeBlockKeys.type),
+        onPressed: () => _toggleBlockType(BuiltInAttributeKey.code),
       ),
       _buildToolbarButton(
         icon: Icons.table_chart,
