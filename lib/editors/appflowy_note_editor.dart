@@ -104,12 +104,11 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     }
   }
 
-  /// Get a valid selection - use cached one if editor lost focus
+  /// Get current selection or fall back to cached
   Selection? _getSelection() {
     final current = _editorState.selection;
-    if (current != null && !current.isCollapsed) return current;
-    if (_lastSelection != null) return _lastSelection;
-    return null;
+    if (current != null) return current;
+    return _lastSelection;
   }
 
   /// Get the last path in the document
@@ -424,20 +423,28 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
 
   /// Insert heading - replace current node with heading node
   void _insertHeading(int level) {
-    final sel = _getSelection();
+    var sel = _editorState.selection;
+    if (sel == null) sel = _lastSelection;
     if (sel == null) return;
 
-    final transaction = _editorState.transaction;
-    final node = _editorState.getNodeAtPath(sel.start.path);
-    if (node != null) {
-      final text = node.delta?.toPlainText() ?? '';
-      transaction.deleteNode(node);
-      transaction.insertNode(
-        sel.start.path,
-        headingNode(level: level, text: text),
-      );
-      _editorState.apply(transaction);
-    }
+    _editorState.updateSelectionWithReason(
+      sel,
+      reason: SelectionUpdateReason.uiEvent,
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final transaction = _editorState.transaction;
+      final node = _editorState.getNodeAtPath(sel.start.path);
+      if (node != null) {
+        final text = node.delta?.toPlainText() ?? '';
+        transaction.deleteNode(node);
+        transaction.insertNode(
+          sel.start.path,
+          headingNode(level: level, text: text),
+        );
+        _editorState.apply(transaction);
+      }
+    });
   }
 
   // --- Table Operations ---
