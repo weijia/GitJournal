@@ -50,9 +50,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   late Note _note;
   StreamSubscription? _transactionSub;
 
-  /// Cache the last valid selection
-  Selection? _lastSelection;
-
   @override
   void initState() {
     super.initState();
@@ -63,7 +60,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     final document = markdownToDocument(_note.body);
     _editorState = EditorState(document: document);
 
-    // Track transactions for modification detection
     _transactionSub = _editorState.transactionStream.listen((_) {
       if (!_isModified) {
         setState(() {
@@ -95,23 +91,27 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     }
   }
 
-  /// Get current selection from editor state
-  Selection? _getSelection() {
-    return _editorState.selection;
+  /// Check if current selection is inside a table
+  bool _isSelectionInTable() {
+    final sel = _editorState.selection;
+    if (sel == null) return false;
+    for (int i = sel.start.path.length - 1; i >= 0; i--) {
+      final path = sel.start.path.sublist(0, i + 1);
+      final node = _editorState.getNodeAtPath(path);
+      if (node != null && node.type == TableBlockKeys.type) {
+        return true;
+      }
+    }
+    return false;
   }
 
-  /// Get the last path in the document
-  Path _getLastPath() {
-    final node = _editorState.document.root;
-    return [node.children.length - 1];
-  }
-
-  /// Find the nearest table node from the current selection
-  Node? _findTableNode(Selection? sel) {
-    final s = sel ?? _lastSelection;
-    if (s == null) return null;
-    for (int i = s.start.path.length - 1; i >= 0; i--) {
-      final node = _editorState.getNodeAtPath(s.start.path.sublist(0, i + 1));
+  /// Find table node from current selection
+  Node? _findTableNode() {
+    final sel = _editorState.selection;
+    if (sel == null) return null;
+    for (int i = sel.start.path.length - 1; i >= 0; i--) {
+      final path = sel.start.path.sublist(0, i + 1);
+      final node = _editorState.getNodeAtPath(path);
       if (node != null && node.type == TableBlockKeys.type) {
         return node;
       }
@@ -119,14 +119,13 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     return null;
   }
 
-  /// Get row and column position from current selection in a table
-  MapEntry<int, int>? _getTableCellPosition(Selection? sel) {
-    final s = sel ?? _lastSelection;
-    if (s == null) return null;
-    // Path structure: [..., tableIndex, colIndex, rowIndex]
-    if (s.start.path.length < 3) return null;
-    final colIndex = s.start.path[s.start.path.length - 2];
-    final rowIndex = s.start.path[s.start.path.length - 1];
+  /// Get cell position in table
+  MapEntry<int, int>? _getTableCellPosition() {
+    final sel = _editorState.selection;
+    if (sel == null) return null;
+    if (sel.start.path.length < 3) return null;
+    final colIndex = sel.start.path[sel.start.path.length - 2];
+    final rowIndex = sel.start.path[sel.start.path.length - 1];
     return MapEntry(rowIndex, colIndex);
   }
 
@@ -223,9 +222,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   }
 
   Widget _buildToolbar(ColorScheme colorScheme) {
-    // Check if cursor is in a table by looking at current selection path
-    final sel = _getSelection();
-    final isInTable = _isSelectionInTable(sel);
+    final isInTable = _isSelectionInTable();
 
     return Material(
       color: colorScheme.surfaceContainerLow,
@@ -243,85 +240,71 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     );
   }
 
-  /// Check if current selection is inside a table
-  bool _isSelectionInTable(Selection? sel) {
-    if (sel == null) return false;
-    // Walk up the path to find table node
-    for (int i = sel.start.path.length - 1; i >= 0; i--) {
-      final path = sel.start.path.sublist(0, i + 1);
-      final node = _editorState.getNodeAtPath(path);
-      if (node != null && node.type == TableBlockKeys.type) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   List<Widget> _buildNormalToolbar(ColorScheme colorScheme) {
     return [
       _buildToolbarButton(
         icon: Icons.title,
         tooltip: 'Heading H1',
-        onPressed: () => _insertHeading(1),
+        onPressed: () => _toggleHeading(1),
       ),
       _buildToolbarButton(
         icon: Icons.format_size,
         tooltip: 'Heading H2',
-        onPressed: () => _insertHeading(2),
+        onPressed: () => _toggleHeading(2),
       ),
       _buildToolbarButton(
         icon: Icons.format_size,
         tooltip: 'Heading H3',
-        onPressed: () => _insertHeading(3),
+        onPressed: () => _toggleHeading(3),
         iconSize: 18,
       ),
       _buildDivider(colorScheme),
       _buildToolbarButton(
         icon: Icons.format_bold,
         tooltip: 'Bold',
-        onPressed: () => _toggleAttribute(BuiltInAttributeKey.bold),
+        onPressed: () => _editorState.toggleAttribute(BuiltInAttributeKey.bold),
       ),
       _buildToolbarButton(
         icon: Icons.format_italic,
         tooltip: 'Italic',
-        onPressed: () => _toggleAttribute(BuiltInAttributeKey.italic),
+        onPressed: () => _editorState.toggleAttribute(BuiltInAttributeKey.italic),
       ),
       _buildToolbarButton(
         icon: Icons.format_underlined,
         tooltip: 'Underline',
-        onPressed: () => _toggleAttribute(BuiltInAttributeKey.underline),
+        onPressed: () => _editorState.toggleAttribute(BuiltInAttributeKey.underline),
       ),
       _buildToolbarButton(
         icon: Icons.strikethrough_s,
         tooltip: 'Strikethrough',
-        onPressed: () => _toggleAttribute(BuiltInAttributeKey.strikethrough),
+        onPressed: () => _editorState.toggleAttribute(BuiltInAttributeKey.strikethrough),
       ),
       _buildDivider(colorScheme),
       _buildToolbarButton(
         icon: Icons.format_list_bulleted,
         tooltip: 'Bullet List',
-        onPressed: () => _toggleBlockType(BuiltInAttributeKey.bulletedList),
+        onPressed: () => _toggleBlockType(BulletedListBlockKeys.type),
       ),
       _buildToolbarButton(
         icon: Icons.format_list_numbered,
         tooltip: 'Numbered List',
-        onPressed: () => _toggleBlockType(BuiltInAttributeKey.numberList),
+        onPressed: () => _toggleBlockType(NumberedListBlockKeys.type),
       ),
       _buildToolbarButton(
         icon: Icons.check_box_outlined,
         tooltip: 'Todo List',
-        onPressed: () => _toggleBlockType(BuiltInAttributeKey.checkbox),
+        onPressed: () => _toggleTodoList(),
       ),
       _buildDivider(colorScheme),
       _buildToolbarButton(
         icon: Icons.format_quote,
         tooltip: 'Quote',
-        onPressed: () => _toggleBlockType(BuiltInAttributeKey.quote),
+        onPressed: () => _toggleBlockType(QuoteBlockKeys.type),
       ),
       _buildToolbarButton(
         icon: Icons.code,
         tooltip: 'Code Block',
-        onPressed: () => _toggleBlockType(BuiltInAttributeKey.code),
+        onPressed: () => _toggleBlockType(CodeBlockKeys.type),
       ),
       _buildToolbarButton(
         icon: Icons.table_chart,
@@ -336,29 +319,29 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       _buildToolbarButton(
         icon: Icons.table_chart,
         tooltip: 'Table: Add Row Below',
-        onPressed: () => _tableAddRow(),
+        onPressed: _tableAddRow,
       ),
       _buildToolbarButton(
         icon: Icons.view_column,
         tooltip: 'Table: Add Column Right',
-        onPressed: () => _tableAddColumn(),
+        onPressed: _tableAddColumn,
       ),
       _buildDivider(colorScheme),
       _buildToolbarButton(
         icon: Icons.delete_outline,
         tooltip: 'Table: Delete Row',
-        onPressed: () => _tableDeleteRow(),
+        onPressed: _tableDeleteRow,
       ),
       _buildToolbarButton(
         icon: Icons.delete_sweep,
         tooltip: 'Table: Delete Column',
-        onPressed: () => _tableDeleteColumn(),
+        onPressed: _tableDeleteColumn,
       ),
       _buildDivider(colorScheme),
       _buildToolbarButton(
         icon: Icons.content_copy,
         tooltip: 'Table: Duplicate Row',
-        onPressed: () => _tableDuplicateRow(),
+        onPressed: _tableDuplicateRow,
       ),
     ];
   }
@@ -387,55 +370,104 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     );
   }
 
-  /// Toggle inline attribute (bold, italic, etc.)
-  void _toggleAttribute(String attributeKey) {
-    final sel = _getSelection();
-    if (sel == null) {
-      debugPrint('No selection for inline attribute');
-      return;
-    }
-    _editorState.toggleAttribute(attributeKey);
-  }
-
-  /// Toggle block type (bullet list, numbered list, checkbox, quote, code)
-  /// Works on current line even without text selection
-  void _toggleBlockType(String blockType) {
-    final sel = _getSelection();
-    if (sel == null) {
-      debugPrint('No selection for block type');
+  /// Toggle block type using formatNode
+  void _toggleBlockType(String targetType) {
+    final selection = _editorState.selection;
+    if (selection == null) {
+      debugPrint('No selection available');
       return;
     }
 
-    // Get the node at current cursor position
-    final node = _editorState.getNodeAtPath(sel.start.path);
+    final node = _editorState.getNodeAtPath(selection.start.path);
     if (node == null) {
-      debugPrint('No node at selection path');
+      debugPrint('No node at selection');
       return;
     }
 
-    debugPrint('Toggling block type $blockType at path: ${sel.start.path}, node type: ${node.type}');
+    // If already this type, convert back to paragraph
+    final newType = node.type == targetType ? ParagraphBlockKeys.type : targetType;
 
-    // Use the editor's built-in command to toggle block type
-    // This works on the current block/line
-    _editorState.toggleAttribute(blockType);
+    debugPrint('Toggling block: ${node.type} -> $newType at path ${selection.start.path}');
+
+    _editorState.formatNode(
+      selection,
+      (node) => node.copyWith(type: newType),
+    );
   }
 
-  /// Insert heading - replace current node with heading node
-  void _insertHeading(int level) {
-    final sel = _getSelection();
-    if (sel == null) return;
+  /// Toggle todo list with checked attribute
+  void _toggleTodoList() {
+    final selection = _editorState.selection;
+    if (selection == null) {
+      debugPrint('No selection available');
+      return;
+    }
 
-    final node = _editorState.getNodeAtPath(sel.start.path);
-    if (node == null) return;
+    final node = _editorState.getNodeAtPath(selection.start.path);
+    if (node == null) {
+      debugPrint('No node at selection');
+      return;
+    }
 
-    final text = node.delta?.toPlainText() ?? '';
-    final transaction = _editorState.transaction;
-    transaction.deleteNode(node);
-    transaction.insertNode(
-      sel.start.path,
-      headingNode(level: level, text: text),
+    final isTodo = node.type == TodoListBlockKeys.type;
+    final newType = isTodo ? ParagraphBlockKeys.type : TodoListBlockKeys.type;
+
+    debugPrint('Toggling todo: ${node.type} -> $newType');
+
+    if (isTodo) {
+      // Convert back to paragraph
+      _editorState.formatNode(
+        selection,
+        (node) => node.copyWith(type: newType),
+      );
+    } else {
+      // Convert to todo with unchecked state
+      _editorState.formatNode(
+        selection,
+        (node) => node.copyWith(
+          type: newType,
+          attributes: {
+            ...node.attributes,
+            TodoListBlockKeys.checked: false,
+          },
+        ),
+      );
+    }
+  }
+
+  /// Toggle heading level
+  void _toggleHeading(int level) {
+    final selection = _editorState.selection;
+    if (selection == null) {
+      debugPrint('No selection available');
+      return;
+    }
+
+    final node = _editorState.getNodeAtPath(selection.start.path);
+    if (node == null) {
+      debugPrint('No node at selection');
+      return;
+    }
+
+    final isHeading = node.type == HeadingBlockKeys.type;
+    final currentLevel = node.attributes[HeadingBlockKeys.level] ?? 1;
+
+    // If already this heading level, convert back to paragraph
+    final shouldToggleOff = isHeading && currentLevel == level;
+    final newType = shouldToggleOff ? ParagraphBlockKeys.type : HeadingBlockKeys.type;
+    final newAttributes = shouldToggleOff
+        ? <String, dynamic>{}
+        : {...node.attributes, HeadingBlockKeys.level: level};
+
+    debugPrint('Toggling heading: ${node.type} -> $newType level $level');
+
+    _editorState.formatNode(
+      selection,
+      (node) => node.copyWith(
+        type: newType,
+        attributes: newAttributes,
+      ),
     );
-    _editorState.apply(transaction);
   }
 
   // --- Table Operations ---
@@ -444,14 +476,15 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     showDialog(
       context: context,
       builder: (context) => _InsertTableDialog(
-        onInsert: (rows, cols) => _insertTable(rows, cols),
+        onInsert: _insertTable,
       ),
     );
   }
 
   void _insertTable(int rows, int cols) {
-    final sel = _getSelection();
-    final insertPath = sel?.end.path ?? _getLastPath();
+    final sel = _editorState.selection;
+    final lastPath = [_editorState.document.root.children.length - 1];
+    final insertPath = sel?.end.path ?? lastPath;
 
     final tableData = List.generate(
       cols,
@@ -477,13 +510,16 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     );
 
     _editorState.apply(transaction);
+    debugPrint('Inserted table ${rows}x$cols');
   }
 
   void _tableAddRow() {
-    final sel = _getSelection();
-    final tableNode = _findTableNode(sel);
-    final cellPos = _getTableCellPosition(sel);
-    if (tableNode == null || cellPos == null) return;
+    final tableNode = _findTableNode();
+    final cellPos = _getTableCellPosition();
+    if (tableNode == null || cellPos == null) {
+      debugPrint('Not in table cell');
+      return;
+    }
 
     TableActions.add(
       tableNode,
@@ -495,10 +531,12 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   }
 
   void _tableAddColumn() {
-    final sel = _getSelection();
-    final tableNode = _findTableNode(sel);
-    final cellPos = _getTableCellPosition(sel);
-    if (tableNode == null || cellPos == null) return;
+    final tableNode = _findTableNode();
+    final cellPos = _getTableCellPosition();
+    if (tableNode == null || cellPos == null) {
+      debugPrint('Not in table cell');
+      return;
+    }
 
     TableActions.add(
       tableNode,
@@ -510,14 +548,16 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   }
 
   void _tableDeleteRow() {
-    final sel = _getSelection();
-    final tableNode = _findTableNode(sel);
-    final cellPos = _getTableCellPosition(sel);
-    if (tableNode == null || cellPos == null) return;
+    final tableNode = _findTableNode();
+    final cellPos = _getTableCellPosition();
+    if (tableNode == null || cellPos == null) {
+      debugPrint('Not in table cell');
+      return;
+    }
 
     final table = TableNode(node: tableNode);
     if (table.rowsLen <= 1) {
-      debugPrint('Cannot delete the last row');
+      debugPrint('Cannot delete last row');
       return;
     }
 
@@ -531,14 +571,16 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   }
 
   void _tableDeleteColumn() {
-    final sel = _getSelection();
-    final tableNode = _findTableNode(sel);
-    final cellPos = _getTableCellPosition(sel);
-    if (tableNode == null || cellPos == null) return;
+    final tableNode = _findTableNode();
+    final cellPos = _getTableCellPosition();
+    if (tableNode == null || cellPos == null) {
+      debugPrint('Not in table cell');
+      return;
+    }
 
     final table = TableNode(node: tableNode);
     if (table.colsLen <= 1) {
-      debugPrint('Cannot delete the last column');
+      debugPrint('Cannot delete last column');
       return;
     }
 
@@ -552,10 +594,12 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   }
 
   void _tableDuplicateRow() {
-    final sel = _getSelection();
-    final tableNode = _findTableNode(sel);
-    final cellPos = _getTableCellPosition(sel);
-    if (tableNode == null || cellPos == null) return;
+    final tableNode = _findTableNode();
+    final cellPos = _getTableCellPosition();
+    if (tableNode == null || cellPos == null) {
+      debugPrint('Not in table cell');
+      return;
+    }
 
     TableActions.duplicate(
       tableNode,
