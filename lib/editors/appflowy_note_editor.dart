@@ -64,8 +64,9 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     final document = markdownToDocument(_note.body);
     _editorState = EditorState(document: document);
 
-    // Track selection changes (more reliable than transaction stream)
-    _selectionSub = _editorState.selectionStream.listen((sel) {
+    // Track selection via transaction stream
+    _selectionSub = _editorState.transactionStream.listen((_) {
+      final sel = _editorState.selection;
       if (sel != null) {
         _lastSelection = sel;
       }
@@ -335,12 +336,8 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
           // Move selection out of table to show normal toolbar
           final sel = _getSelection();
           if (sel != null) {
-            final tableNode = _findTableNode(sel);
-            if (tableNode != null) {
-              final tablePath = _editorState.getNodeAtPath(sel.start.path);
-              // Just update state to trigger rebuild - toolbar will switch
-              setState(() {});
-            }
+            // Just update state to trigger rebuild - toolbar will switch
+          setState(() {});
           }
         },
       ),
