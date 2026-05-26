@@ -49,7 +49,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   bool _isModified = false;
   late Note _note;
   StreamSubscription? _transactionSub;
-  StreamSubscription? _selectionSub;
 
   /// Cache the last valid selection
   Selection? _lastSelection;
@@ -64,14 +63,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     final document = markdownToDocument(_note.body);
     _editorState = EditorState(document: document);
 
-    // Track selection via transaction stream
-    _selectionSub = _editorState.transactionStream.listen((_) {
-      final sel = _editorState.selection;
-      if (sel != null) {
-        _lastSelection = sel;
-      }
-    });
-
+    // Track transactions for modification detection
     _transactionSub = _editorState.transactionStream.listen((_) {
       if (!_isModified) {
         setState(() {
@@ -85,7 +77,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   @override
   void dispose() {
     _transactionSub?.cancel();
-    _selectionSub?.cancel();
     _titleController.dispose();
     super.dispose();
   }
@@ -104,11 +95,9 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     }
   }
 
-  /// Get current selection or fall back to cached
+  /// Get current selection from editor state
   Selection? _getSelection() {
-    final current = _editorState.selection;
-    if (current != null) return current;
-    return _lastSelection;
+    return _editorState.selection;
   }
 
   /// Get the last path in the document
@@ -234,7 +223,9 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   }
 
   Widget _buildToolbar(ColorScheme colorScheme) {
-    final isInTable = _findTableNode(null) != null;
+    // Check if cursor is in a table by looking at current selection path
+    final sel = _getSelection();
+    final isInTable = _isSelectionInTable(sel);
 
     return Material(
       color: colorScheme.surfaceContainerLow,
@@ -250,6 +241,20 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
         ),
       ),
     );
+  }
+
+  /// Check if current selection is inside a table
+  bool _isSelectionInTable(Selection? sel) {
+    if (sel == null) return false;
+    // Walk up the path to find table node
+    for (int i = sel.start.path.length - 1; i >= 0; i--) {
+      final path = sel.start.path.sublist(0, i + 1);
+      final node = _editorState.getNodeAtPath(path);
+      if (node != null && node.type == TableBlockKeys.type) {
+        return true;
+      }
+    }
+    return false;
   }
 
   List<Widget> _buildNormalToolbar(ColorScheme colorScheme) {
@@ -274,49 +279,49 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       _buildToolbarButton(
         icon: Icons.format_bold,
         tooltip: 'Bold',
-        onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.bold),
+        onPressed: () => _toggleAttribute(BuiltInAttributeKey.bold),
       ),
       _buildToolbarButton(
         icon: Icons.format_italic,
         tooltip: 'Italic',
-        onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.italic),
+        onPressed: () => _toggleAttribute(BuiltInAttributeKey.italic),
       ),
       _buildToolbarButton(
         icon: Icons.format_underlined,
         tooltip: 'Underline',
-        onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.underline),
+        onPressed: () => _toggleAttribute(BuiltInAttributeKey.underline),
       ),
       _buildToolbarButton(
         icon: Icons.strikethrough_s,
         tooltip: 'Strikethrough',
-        onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.strikethrough),
+        onPressed: () => _toggleAttribute(BuiltInAttributeKey.strikethrough),
       ),
       _buildDivider(colorScheme),
       _buildToolbarButton(
         icon: Icons.format_list_bulleted,
         tooltip: 'Bullet List',
-        onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.bulletedList),
+        onPressed: () => _toggleBlockType(BuiltInAttributeKey.bulletedList),
       ),
       _buildToolbarButton(
         icon: Icons.format_list_numbered,
         tooltip: 'Numbered List',
-        onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.numberList),
+        onPressed: () => _toggleBlockType(BuiltInAttributeKey.numberList),
       ),
       _buildToolbarButton(
         icon: Icons.check_box_outlined,
         tooltip: 'Todo List',
-        onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.checkbox),
+        onPressed: () => _toggleBlockType(BuiltInAttributeKey.checkbox),
       ),
       _buildDivider(colorScheme),
       _buildToolbarButton(
         icon: Icons.format_quote,
         tooltip: 'Quote',
-        onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.quote),
+        onPressed: () => _toggleBlockType(BuiltInAttributeKey.quote),
       ),
       _buildToolbarButton(
         icon: Icons.code,
         tooltip: 'Code Block',
-        onPressed: () => _toggleSelectionAttribute(BuiltInAttributeKey.code),
+        onPressed: () => _toggleBlockType(BuiltInAttributeKey.code),
       ),
       _buildToolbarButton(
         icon: Icons.table_chart,
@@ -329,36 +334,31 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   List<Widget> _buildTableToolbar(ColorScheme colorScheme) {
     return [
       _buildToolbarButton(
-        icon: Icons.add,
-        tooltip: 'Add Row Below',
+        icon: Icons.table_chart,
+        tooltip: 'Table: Add Row Below',
         onPressed: () => _tableAddRow(),
       ),
       _buildToolbarButton(
-        icon: Icons.add_circle_outline,
-        tooltip: 'Add Column Right',
+        icon: Icons.view_column,
+        tooltip: 'Table: Add Column Right',
         onPressed: () => _tableAddColumn(),
       ),
       _buildDivider(colorScheme),
       _buildToolbarButton(
-        icon: Icons.remove,
-        tooltip: 'Delete Row',
+        icon: Icons.delete_outline,
+        tooltip: 'Table: Delete Row',
         onPressed: () => _tableDeleteRow(),
       ),
       _buildToolbarButton(
-        icon: Icons.remove_circle_outline,
-        tooltip: 'Delete Column',
+        icon: Icons.delete_sweep,
+        tooltip: 'Table: Delete Column',
         onPressed: () => _tableDeleteColumn(),
       ),
       _buildDivider(colorScheme),
       _buildToolbarButton(
         icon: Icons.content_copy,
-        tooltip: 'Duplicate Row',
+        tooltip: 'Table: Duplicate Row',
         onPressed: () => _tableDuplicateRow(),
-      ),
-      _buildToolbarButton(
-        icon: Icons.table_chart,
-        tooltip: 'Insert New Table',
-        onPressed: _showInsertTableDialog,
       ),
     ];
   }
@@ -387,24 +387,37 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     );
   }
 
-  /// Toggle block attribute - works with or without text selection
-  void _toggleSelectionAttribute(String attributeKey) {
+  /// Toggle inline attribute (bold, italic, etc.)
+  void _toggleAttribute(String attributeKey) {
     final sel = _getSelection();
     if (sel == null) {
-      debugPrint('No selection available');
+      debugPrint('No selection for inline attribute');
+      return;
+    }
+    _editorState.toggleAttribute(attributeKey);
+  }
+
+  /// Toggle block type (bullet list, numbered list, checkbox, quote, code)
+  /// Works on current line even without text selection
+  void _toggleBlockType(String blockType) {
+    final sel = _getSelection();
+    if (sel == null) {
+      debugPrint('No selection for block type');
       return;
     }
 
-    // Restore selection first, then toggle after frame renders
-    _editorState.updateSelectionWithReason(
-      sel,
-      reason: SelectionUpdateReason.uiEvent,
-    );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _editorState.toggleAttribute(attributeKey);
-      debugPrint('Toggled $attributeKey');
-    });
+    // Get the node at current cursor position
+    final node = _editorState.getNodeAtPath(sel.start.path);
+    if (node == null) {
+      debugPrint('No node at selection path');
+      return;
+    }
+
+    debugPrint('Toggling block type $blockType at path: ${sel.start.path}, node type: ${node.type}');
+
+    // Use the editor's built-in command to toggle block type
+    // This works on the current block/line
+    _editorState.toggleAttribute(blockType);
   }
 
   /// Insert heading - replace current node with heading node
@@ -412,27 +425,17 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     final sel = _getSelection();
     if (sel == null) return;
 
-    // Capture path before closure to avoid null safety issues
-    final selPath = sel.start.path;
+    final node = _editorState.getNodeAtPath(sel.start.path);
+    if (node == null) return;
 
-    _editorState.updateSelectionWithReason(
-      sel,
-      reason: SelectionUpdateReason.uiEvent,
+    final text = node.delta?.toPlainText() ?? '';
+    final transaction = _editorState.transaction;
+    transaction.deleteNode(node);
+    transaction.insertNode(
+      sel.start.path,
+      headingNode(level: level, text: text),
     );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final transaction = _editorState.transaction;
-      final node = _editorState.getNodeAtPath(selPath);
-      if (node != null) {
-        final text = node.delta?.toPlainText() ?? '';
-        transaction.deleteNode(node);
-        transaction.insertNode(
-          selPath,
-          headingNode(level: level, text: text),
-        );
-        _editorState.apply(transaction);
-      }
-    });
+    _editorState.apply(transaction);
   }
 
   // --- Table Operations ---
@@ -477,34 +480,39 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   }
 
   void _tableAddRow() {
-    final tableNode = _findTableNode(null);
-    final cellPos = _getTableCellPosition(null);
+    final sel = _getSelection();
+    final tableNode = _findTableNode(sel);
+    final cellPos = _getTableCellPosition(sel);
     if (tableNode == null || cellPos == null) return;
 
     TableActions.add(
       tableNode,
-      cellPos.key, // rowIndex
+      cellPos.key,
       _editorState,
       TableDirection.row,
     );
+    debugPrint('Added row after ${cellPos.key}');
   }
 
   void _tableAddColumn() {
-    final tableNode = _findTableNode(null);
-    final cellPos = _getTableCellPosition(null);
+    final sel = _getSelection();
+    final tableNode = _findTableNode(sel);
+    final cellPos = _getTableCellPosition(sel);
     if (tableNode == null || cellPos == null) return;
 
     TableActions.add(
       tableNode,
-      cellPos.value, // colIndex
+      cellPos.value,
       _editorState,
       TableDirection.col,
     );
+    debugPrint('Added column after ${cellPos.value}');
   }
 
   void _tableDeleteRow() {
-    final tableNode = _findTableNode(null);
-    final cellPos = _getTableCellPosition(null);
+    final sel = _getSelection();
+    final tableNode = _findTableNode(sel);
+    final cellPos = _getTableCellPosition(sel);
     if (tableNode == null || cellPos == null) return;
 
     final table = TableNode(node: tableNode);
@@ -519,11 +527,13 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       _editorState,
       TableDirection.row,
     );
+    debugPrint('Deleted row ${cellPos.key}');
   }
 
   void _tableDeleteColumn() {
-    final tableNode = _findTableNode(null);
-    final cellPos = _getTableCellPosition(null);
+    final sel = _getSelection();
+    final tableNode = _findTableNode(sel);
+    final cellPos = _getTableCellPosition(sel);
     if (tableNode == null || cellPos == null) return;
 
     final table = TableNode(node: tableNode);
@@ -538,11 +548,13 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       _editorState,
       TableDirection.col,
     );
+    debugPrint('Deleted column ${cellPos.value}');
   }
 
   void _tableDuplicateRow() {
-    final tableNode = _findTableNode(null);
-    final cellPos = _getTableCellPosition(null);
+    final sel = _getSelection();
+    final tableNode = _findTableNode(sel);
+    final cellPos = _getTableCellPosition(sel);
     if (tableNode == null || cellPos == null) return;
 
     TableActions.duplicate(
@@ -551,6 +563,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       _editorState,
       TableDirection.row,
     );
+    debugPrint('Duplicated row ${cellPos.key}');
   }
 
   // --- Editor State ---
