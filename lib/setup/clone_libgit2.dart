@@ -64,17 +64,15 @@ Future<void> _clone({
   try {
     var configFile = File('$repoPath/.git/config');
     var configContent = await configFile.readAsString();
-    if (!configContent.contains('	fileMode = false')) {
-      configContent = configContent.replace(
-        '	fileMode = true',
-        '	fileMode = false',
+    if (!configContent.contains('fileMode = false')) {
+      configContent = configContent.replaceAll(
+        'fileMode = true',
+        'fileMode = false',
       );
-      // If no fileMode entry exists, add it under [core]
       if (!configContent.contains('fileMode')) {
         configContent = configContent.replace(
           '[core]',
-          '[core]
-	fileMode = false',
+          '[core]\n\tfileMode = false',
         );
       }
       await configFile.writeAsString(configContent);
