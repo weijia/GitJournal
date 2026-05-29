@@ -5,6 +5,7 @@
  */
 
 import 'dart:convert';
+import 'package:universal_io/io.dart';
 
 import 'package:dart_git/dart_git.dart';
 import 'package:dart_git/plumbing/reference.dart';
@@ -61,9 +62,23 @@ Future<void> _clone({
   // Ignore file permission mode to avoid "malformed mode" errors
   // on repos with non-standard permissions (e.g. from Gitee)
   try {
-    var repo = GitRepository.load(repoPath);
-    repo.config.set('core', 'fileMode', 'false');
-    repo.close();
+    var configFile = File('$repoPath/.git/config');
+    var configContent = await configFile.readAsString();
+    if (!configContent.contains('	fileMode = false')) {
+      configContent = configContent.replace(
+        '	fileMode = true',
+        '	fileMode = false',
+      );
+      // If no fileMode entry exists, add it under [core]
+      if (!configContent.contains('fileMode')) {
+        configContent = configContent.replace(
+          '[core]',
+          '[core]
+	fileMode = false',
+        );
+      }
+      await configFile.writeAsString(configContent);
+    }
   } catch (ex) {
     Log.w("Failed to set core.fileMode=false", ex: ex);
   }
