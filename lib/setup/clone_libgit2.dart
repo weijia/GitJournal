@@ -63,19 +63,23 @@ Future<void> _clone({
   // on repos with non-standard permissions (e.g. from Gitee)
   try {
     var configFile = File('$repoPath/.git/config');
-    var configContent = await configFile.readAsString();
-    if (!configContent.contains('fileMode = false')) {
-      configContent = configContent.replaceAll(
-        'fileMode = true',
-        'fileMode = false',
-      );
-      if (!configContent.contains('fileMode')) {
-        configContent = configContent.replace(
-          '[core]',
-          '[core]\n\tfileMode = false',
-        );
+    var lines = await configFile.readAsLines();
+    var modified = false;
+    var newLines = <String>[];
+    for (var line in lines) {
+      if (line.contains('fileMode = true')) {
+        newLines.add('\tfileMode = false');
+        modified = true;
+      } else if (line.trim() == '[core]' && !lines.any((l) => l.contains('fileMode'))) {
+        newLines.add(line);
+        newLines.add('\tfileMode = false');
+        modified = true;
+      } else {
+        newLines.add(line);
       }
-      await configFile.writeAsString(configContent);
+    }
+    if (modified) {
+      await configFile.writeAsString(newLines.join('\n'));
     }
   } catch (ex) {
     Log.w("Failed to set core.fileMode=false", ex: ex);
