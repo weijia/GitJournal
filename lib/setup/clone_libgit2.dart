@@ -57,6 +57,16 @@ Future<void> _clone({
     utf8.encode(sshPrivateKey),
     sshPassword,
   );
+
+  // Ignore file permission mode to avoid "malformed mode" errors
+  // on repos with non-standard permissions (e.g. from Gitee)
+  try {
+    var repo = GitRepository.load(repoPath);
+    repo.config.set('core', 'fileMode', 'false');
+    repo.close();
+  } catch (ex) {
+    Log.w("Failed to set core.fileMode=false", ex: ex);
+  }
 }
 
 Future<void> _fetch(
