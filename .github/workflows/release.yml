@@ -164,9 +164,16 @@ jobs:
             find / -type d -name "go_git_dart" 2>/dev/null || true
           fi
 
-      - name: Decode release keystore
+      - name: Decode release keystore (if available)
         run: |
-          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > android/app/release-keystore.jks
+          if [ -n "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > android/app/release-keystore.jks
+            echo "Release keystore decoded successfully"
+          else
+            echo "No RELEASE_KEYSTORE_BASE64 secret found, will use debug signing"
+            # Create a dummy file to prevent gradle error
+            touch android/app/release-keystore.jks
+          fi
           ls -la android/app/release-keystore.jks
 
       - name: Build Release APK
@@ -174,6 +181,9 @@ jobs:
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          DEBUG_KEYSTORE_PASSWORD: ${{ secrets.DEBUG_KEYSTORE_PASSWORD }}
+          DEBUG_KEY_ALIAS: ${{ secrets.DEBUG_KEY_ALIAS }}
+          DEBUG_KEY_PASSWORD: ${{ secrets.DEBUG_KEY_PASSWORD }}
         run: |
           set -eux
           

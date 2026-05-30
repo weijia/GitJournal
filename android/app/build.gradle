@@ -53,15 +53,27 @@ android {
 
     signingConfigs {
         release {
-            // Try environment variables first (for CI), then keystore.properties
+            // Try environment variables first (for CI), then keystore.properties, then debug fallback
             def releaseKeystorePath = 'release-keystore.jks'
             def releaseKeystoreFile = rootProject.file(releaseKeystorePath)
-            if (releaseKeystoreFile.exists()) {
+            def debugKeystorePath = 'debug-keystore.jks'
+            def debugKeystoreFile = rootProject.file(debugKeystorePath)
+            
+            if (releaseKeystoreFile.exists() && releaseKeystoreFile.length() > 0) {
+                // Use release keystore
                 storeFile releaseKeystoreFile
                 storePassword System.getenv('RELEASE_KEYSTORE_PASSWORD') ?: keystoreProperties['storePassword']
                 keyAlias System.getenv('RELEASE_KEY_ALIAS') ?: keystoreProperties['keyAlias']
                 keyPassword System.getenv('RELEASE_KEY_PASSWORD') ?: keystoreProperties['keyPassword']
+            } else if (debugKeystoreFile.exists()) {
+                // Fallback to debug keystore
+                println "Warning: Release keystore not found, using debug keystore"
+                storeFile debugKeystoreFile
+                storePassword System.getenv('DEBUG_KEYSTORE_PASSWORD') ?: 'gitjournal-debug-pass'
+                keyAlias System.getenv('DEBUG_KEY_ALIAS') ?: 'gitjournal-debug'
+                keyPassword System.getenv('DEBUG_KEY_PASSWORD') ?: 'gitjournal-debug-pass'
             } else {
+                // Last resort: use local.properties
                 keyAlias keystoreProperties['keyAlias']
                 keyPassword keystoreProperties['keyPassword']
                 storeFile file(keystoreProperties['storeFile'])
