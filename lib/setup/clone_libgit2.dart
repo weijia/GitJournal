@@ -51,38 +51,108 @@ Future<void> _clone({
   required String sshPassword,
   required String statusFile,
 }) async {
-  var bindings = GitBindingsAsync();
-  await bindings.clone(
-    cloneUrl,
-    repoPath,
-    utf8.encode(sshPrivateKey),
-    sshPassword,
-  );
+  Log.i("=== go_git_dart Clone Start ===");
+  Log.i("Clone URL: $cloneUrl");
+  Log.i("Repo Path: $repoPath");
 
-  // Ignore file permission mode to avoid "malformed mode" errors
-  // on repos with non-standard permissions (e.g. from Gitee)
+  // Pre-create the directory and set core.fileMode=false BEFORE clone
+  // This helps go-git handle repos with non-standard file permissions
   try {
-    var configFile = File('$repoPath/.git/config');
-    var lines = await configFile.readAsLines();
-    var modified = false;
-    var newLines = <String>[];
-    for (var line in lines) {
-      if (line.contains('fileMode = true')) {
-        newLines.add('\tfileMode = false');
-        modified = true;
-      } else if (line.trim() == '[core]' && !lines.any((l) => l.contains('fileMode'))) {
-        newLines.add(line);
-        newLines.add('\tfileMode = false');
-        modified = true;
-      } else {
-        newLines.add(line);
-      }
+    var dir = Directory(repoPath);
+    if (!dir.existsSync()) {
+      await dir.create(recursive: true);
     }
-    if (modified) {
-      await configFile.writeAsString(newLines.join('\n'));
+    var gitDir = Directory('$repoPath/.git');
+    if (!gitDir.existsSync()) {
+      await gitDir.create(recursive: true);
+      // Write a minimal config with core.fileMode=false
+      var configFile = File('$repoPath/.git/config');
+      await configFile.writeAsString(
+        '[core]\n'
+        '\tfileMode = false\n'
+        '\trepositoryformatversion = 0\n'
+        '\tfilemode = false\n'
+        '\tbare = false\n'
+        '\tlogallrefupdates = true\n'
+      );
+      Log.i("Pre-created .git/config with core.fileMode=false");
     }
   } catch (ex) {
-    Log.w("Failed to set core.fileMode=false", ex: ex);
+    Log.w("Failed to pre-create .git/config (non-fatal)", ex: ex);
+  }
+
+  var bindings = GitBindingsAsync();
+  try {
+    await bindings.clone(
+      cloneUrl,
+      repoPath,
+      utf8.encode(sshPrivateKey),
+      sshPassword,
+    );
+    Log.i("=== go_git_dart Clone Success ===");
+  } catch (ex, st) {
+    Log.e("=== go_git_dart Clone FAILED ===", ex: ex, stacktrace: st);
+    Log.e("Clone Error Details: ${ex.toString()}");
+    Log.e("Clone URL was: $cloneUrl");
+    Log.e("Repo Path was: $repoPath");
+
+    // Check if this is a malformed mode error
+    var errStr = ex.toString().toLowerCase();
+    if (errStr.contains('malformed') || errStr.contains('mode')) {
+      Log.e("DETECTED: Malformed mode error - this means go_git_dart fallback failed");
+      Log.e("The go_git_dart binary may not have been updated with the fix");
+    }
+
+    rethrow;
+  }
+
+  // Post-clone: Ensure core.fileMode=false is set
+  try {
+    var configFile = File('$repoPath/.git/config');
+    if (configFile.existsSync()) {
+      var lines = await configFile.readAsLines();
+      var modified = false;
+      var newLines = <String>[];
+      var hasCoreSection = false;
+      var hasFileMode = false;
+
+      for (var line in lines) {
+        if (line.trim() == '[core]') {
+          hasCoreSection = true;
+        }
+        if (line.contains('fileMode') || line.contains('filemode')) {
+          hasFileMode = true;
+          if (line.contains('true')) {
+            newLines.add('\tfileMode = false');
+            modified = true;
+            continue;
+          }
+        }
+        newLines.add(line);
+      }
+
+      if (hasCoreSection && !hasFileMode) {
+        // Insert fileMode = false after [core] section
+        var result = <String>[];
+        for (var line in newLines) {
+          result.add(line);
+          if (line.trim() == '[core]') {
+            result.add('\tfileMode = false');
+            modified = true;
+          }
+        }
+        newLines = result;
+      }
+
+      if (modified) {
+        await configFile.writeAsString(newLines.join('\n'));
+        Log.i("Set core.fileMode=false in .git/config");
+      } else {
+        Log.i("core.fileMode already correctly configured");
+      }
+    }
+  } catch (ex) {
+    Log.w("Failed to set core.fileMode=false (non-fatal)", ex: ex);
   }
 }
 
