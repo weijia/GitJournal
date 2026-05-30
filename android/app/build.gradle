@@ -57,15 +57,18 @@ android {
             def debugKeystoreFile = rootProject.file(debugKeystorePath)
             if (debugKeystoreFile.exists()) {
                 storeFile debugKeystoreFile
-                storePassword System.getenv('DEBUG_KEYSTORE_PASSWORD') ?: 'gitjournal-debug-pass'
-                keyAlias System.getenv('DEBUG_KEY_ALIAS') ?: 'gitjournal-debug'
-                keyPassword System.getenv('DEBUG_KEY_PASSWORD') ?: 'gitjournal-debug-pass'
+                storePassword 'gitjournal-debug-pass'
+                keyAlias 'gitjournal-debug'
+                keyPassword 'gitjournal-debug-pass'
             }
         }
-        // release uses same config as debug for CI builds
+        // release uses same keystore as debug for CI builds
         // this allows OTA updates without managing release keys
         release {
-            initWith debug
+            storeFile rootProject.file('debug-keystore.jks')
+            storePassword 'gitjournal-debug-pass'
+            keyAlias 'gitjournal-debug'
+            keyPassword 'gitjournal-debug-pass'
         }
     }
     buildTypes {
