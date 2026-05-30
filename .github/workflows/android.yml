@@ -151,14 +151,20 @@ jobs:
           done
 
           # Method 2: Also search for any path containing go_git_dart with jniLibs
+          # Skip the source directory (go_git_dart_fork) to avoid self-replacement error
           while IFS= read -r jniDir; do
+            # Skip if this is the source directory
+            if [[ "$jniDir" == *"go_git_dart_fork"* ]]; then
+              echo "  Skipping source directory: $jniDir"
+              continue
+            fi
             echo "  Found jniLibs at: $jniDir"
             rm -rf "$jniDir"
             parent=$(dirname "$jniDir")
             cp -r "$CUSTOM_LIBS" "$parent/jniLibs"
             echo "  ✓ Replaced!"
             replaced=$((replaced + 1))
-          done < <(find / -type d -path "*/go_git_dart*/android/src/main/jniLibs" 2>/dev/null)
+          done < <(find / -type d -path "*/go_git_dart*/android/src/main/jniLibs" 2>/dev/null | grep -v "go_git_dart_fork")
 
           echo "=== Total replacements: $replaced ==="
           if [ "$replaced" -eq 0 ]; then
