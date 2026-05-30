@@ -164,17 +164,31 @@ jobs:
             find / -type d -name "go_git_dart" 2>/dev/null || true
           fi
 
-      - name: Decode release keystore (if available)
+      - name: Decode keystore files
         run: |
+          # Decode debug keystore (always needed as fallback)
+          echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > android/app/debug-keystore.jks
+          if [ ! -s android/app/debug-keystore.jks ]; then
+            echo "No DEBUG_KEYSTORE_BASE64 secret found, generating debug keystore..."
+            keytool -genkeypair -v -keystore android/app/debug-keystore.jks \
+              -storepass gitjournal-debug-pass -alias gitjournal-debug -keypass gitjournal-debug-pass \
+              -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=GitJournal Debug,O=GitJournal,C=US"
+          fi
+          ls -la android/app/debug-keystore.jks
+
+          # Decode release keystore (optional)
           if [ -n "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
             echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > android/app/release-keystore.jks
-            echo "Release keystore decoded successfully"
+            if [ -s android/app/release-keystore.jks ]; then
+              echo "Release keystore decoded successfully"
+            else
+              echo "RELEASE_KEYSTORE_BASE64 is set but invalid, using debug keystore"
+              rm -f android/app/release-keystore.jks
+            fi
           else
-            echo "No RELEASE_KEYSTORE_BASE64 secret found, will use debug signing"
-            # Create a dummy file to prevent gradle error
-            touch android/app/release-keystore.jks
+            echo "No RELEASE_KEYSTORE_BASE64 secret found, will use debug keystore"
           fi
-          ls -la android/app/release-keystore.jks
+          ls -la android/app/release-keystore.jks 2>/dev/null || echo "No release keystore"
 
       - name: Build Release APK
         env:
