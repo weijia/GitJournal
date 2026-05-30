@@ -97,6 +97,11 @@ jobs:
 
           cd go_git_dart_fork/src
 
+          # Verify replace directive is active
+          echo "=== Verifying go-git replace directive ==="
+          go mod graph | grep go-git || true
+          grep replace go.mod || true
+
           NDK_TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64"
           if [ ! -d "$NDK_TOOLCHAIN" ]; then
             echo "ERROR: NDK toolchain not found at $NDK_TOOLCHAIN"
