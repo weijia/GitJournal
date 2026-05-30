@@ -88,7 +88,7 @@ void main() {
     exit(1);
   }
 
-  print('✓ go_git_dart is correctly configured to use forked version');
-  print('  URL: $url');
+  stdout.writeln('✓ go_git_dart is correctly configured to use forked version');
+  stdout.writeln('  URL: $url');
   exit(0);
 }
