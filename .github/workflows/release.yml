@@ -21,6 +21,8 @@ env:
 jobs:
   Build-Release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Give more Disk Space
         run: sudo rm -rf /usr/share/dotnet
