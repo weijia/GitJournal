@@ -5,9 +5,9 @@
 
 // This script verifies that go_git_dart dependency is correctly configured
 // to use the forked version with malformed mode fixes.
+// Uses only Dart core libraries (no external dependencies).
 
 import 'dart:io';
-import 'package:yaml/yaml.dart';
 
 void main() {
   final pubspecFile = File('pubspec.yaml');
@@ -17,39 +17,60 @@ void main() {
   }
 
   final content = pubspecFile.readAsStringSync();
-  final yaml = loadYaml(content);
   
-  final dependencies = yaml['dependencies'] as Map?;
-  if (dependencies == null) {
-    stderr.writeln('ERROR: No dependencies section found');
-    exit(1);
+  // Simple YAML parsing for go_git_dart dependency
+  // Look for go_git_dart: followed by git: configuration
+  final lines = content.split('\n');
+  bool inGoGitDart = false;
+  bool inGit = false;
+  String? url;
+  
+  for (var i = 0; i < lines.length; i++) {
+    final line = lines[i];
+    final trimmed = line.trim();
+    
+    // Check if we're entering go_git_dart section
+    if (RegExp(r'^go_git_dart:\s*$').hasMatch(trimmed)) {
+      inGoGitDart = true;
+      continue;
+    }
+    
+    // Check if we're leaving go_git_dart section (new top-level key)
+    if (inGoGitDart && !line.startsWith(' ') && !line.startsWith('\t') && trimmed.isNotEmpty) {
+      inGoGitDart = false;
+      inGit = false;
+      continue;
+    }
+    
+    if (inGoGitDart) {
+      // Check for git: key
+      if (RegExp(r'^git:\s*$').hasMatch(trimmed)) {
+        inGit = true;
+        continue;
+      }
+      
+      // Check for inline git: url
+      final inlineMatch = RegExp(r'^git:\s*(\S+)').firstMatch(trimmed);
+      if (inlineMatch != null) {
+        url = inlineMatch.group(1);
+        break;
+      }
+      
+      // Check for url: in git section
+      if (inGit && trimmed.startsWith('url:')) {
+        url = trimmed.substring(4).trim();
+        break;
+      }
+      
+      // Check if we're leaving git section
+      if (inGit && !line.startsWith('    ') && !line.startsWith('\t\t') && trimmed.isNotEmpty && !trimmed.startsWith('git:')) {
+        inGit = false;
+      }
+    }
   }
-
-  final goGitDart = dependencies['go_git_dart'];
-  if (goGitDart == null) {
-    stderr.writeln('ERROR: go_git_dart dependency not found');
-    exit(1);
-  }
-
-  // Check if it's using the git dependency
-  if (goGitDart is! Map) {
-    stderr.writeln('ERROR: go_git_dart should be a git dependency');
-    exit(1);
-  }
-
-  final git = goGitDart['git'];
-  if (git == null) {
-    stderr.writeln('ERROR: go_git_dart should be a git dependency');
-    exit(1);
-  }
-
-  String url;
-  if (git is String) {
-    url = git;
-  } else if (git is Map) {
-    url = git['url']?.toString() ?? '';
-  } else {
-    stderr.writeln('ERROR: Invalid go_git_dart git configuration');
+  
+  if (url == null) {
+    stderr.writeln('ERROR: go_git_dart dependency not found or not configured as git dependency');
     exit(1);
   }
 
