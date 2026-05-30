@@ -52,34 +52,6 @@ android {
     }
 
     signingConfigs {
-        release {
-            // Try environment variables first (for CI), then keystore.properties, then debug fallback
-            def releaseKeystorePath = 'release-keystore.jks'
-            def releaseKeystoreFile = rootProject.file(releaseKeystorePath)
-            def debugKeystorePath = 'debug-keystore.jks'
-            def debugKeystoreFile = rootProject.file(debugKeystorePath)
-            
-            if (releaseKeystoreFile.exists() && releaseKeystoreFile.length() > 0) {
-                // Use release keystore
-                storeFile releaseKeystoreFile
-                storePassword System.getenv('RELEASE_KEYSTORE_PASSWORD') ?: keystoreProperties['storePassword']
-                keyAlias System.getenv('RELEASE_KEY_ALIAS') ?: keystoreProperties['keyAlias']
-                keyPassword System.getenv('RELEASE_KEY_PASSWORD') ?: keystoreProperties['keyPassword']
-            } else if (debugKeystoreFile.exists()) {
-                // Fallback to debug keystore
-                println "Warning: Release keystore not found, using debug keystore"
-                storeFile debugKeystoreFile
-                storePassword System.getenv('DEBUG_KEYSTORE_PASSWORD') ?: 'gitjournal-debug-pass'
-                keyAlias System.getenv('DEBUG_KEY_ALIAS') ?: 'gitjournal-debug'
-                keyPassword System.getenv('DEBUG_KEY_PASSWORD') ?: 'gitjournal-debug-pass'
-            } else {
-                // Last resort: use local.properties
-                keyAlias keystoreProperties['keyAlias']
-                keyPassword keystoreProperties['keyPassword']
-                storeFile file(keystoreProperties['storeFile'])
-                storePassword keystoreProperties['storePassword']
-            }
-        }
         debug {
             def debugKeystorePath = 'debug-keystore.jks'
             def debugKeystoreFile = rootProject.file(debugKeystorePath)
@@ -89,6 +61,11 @@ android {
                 keyAlias System.getenv('DEBUG_KEY_ALIAS') ?: 'gitjournal-debug'
                 keyPassword System.getenv('DEBUG_KEY_PASSWORD') ?: 'gitjournal-debug-pass'
             }
+        }
+        // release uses same config as debug for CI builds
+        // this allows OTA updates without managing release keys
+        release {
+            initWith debug
         }
     }
     buildTypes {
@@ -109,7 +86,10 @@ android {
     dexOptions {
         preDexLibraries true
         jumboMode true
-        javaMaxHeapSize "12g"
+    }
+
+    packagingOptions {
+        pickFirst '**/libgo_git_dart.so'
     }
 }
 
@@ -117,9 +97,6 @@ flutter {
     source '../..'
 }
 
-// Are these required?
-// dependencies {
-//     testImplementation 'junit:junit:4.12'
-//     androidTestImplementation 'androidx.test:runner:1.1.0'
-//     androidTestImplementation 'androidx.test.espresso:espresso-core:3.1.0'
-// }
+dependencies {
+    implementation 'androidx.multidex:multidex:2.0.1'
+}
