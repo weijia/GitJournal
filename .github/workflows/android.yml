@@ -172,7 +172,16 @@ jobs:
           
           echo "=== Replacement complete ==="
 
-      - name: Build APK (debug - no signing key needed)
+      - name: Decode debug keystore
+        run: |
+          echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > android/app/debug-keystore.jks
+          ls -la android/app/debug-keystore.jks
+
+      - name: Build APK (debug with fixed signing)
+        env:
+          DEBUG_KEYSTORE_PASSWORD: ${{ secrets.DEBUG_KEYSTORE_PASSWORD }}
+          DEBUG_KEY_ALIAS: ${{ secrets.DEBUG_KEY_ALIAS }}
+          DEBUG_KEY_PASSWORD: ${{ secrets.DEBUG_KEY_PASSWORD }}
         run: |
           set -eux
           BUILD_NUM=$(git rev-list --count HEAD)
