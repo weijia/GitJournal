@@ -73,6 +73,7 @@ jobs:
 
       - name: Setup Android NDK
         uses: nttld/setup-ndk@v1
+        id: setup-ndk
         with:
           ndk-version: r25c
 
@@ -84,54 +85,59 @@ jobs:
           fetch-depth: 0
 
       - name: Build go_git_dart Android binaries
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
+          set -eux
           echo "=== Building go_git_dart Android binaries ==="
-          cd go_git_dart_fork/src
-          
-          # Install gomobile if not present
-          go install golang.org/x/mobile/cmd/gomobile@latest || true
-          go install golang.org/x/mobile/cmd/gobind@latest || true
-          
-          # Set up NDK path
-          export ANDROID_NDK_HOME=$ANDROID_NDK
-          export ANDROID_NDK=$ANDROID_NDK
-          
-          echo "NDK Path: $ANDROID_NDK"
+          echo "NDK Path: $ANDROID_NDK_HOME"
           echo "Go version: $(go version)"
           
-          # Build using the provided script or manually
-          if [ -f build-android.sh ]; then
-            chmod +x build-android.sh
-            ./build-android.sh
-          else
-            echo "Building manually..."
-            # Build for each architecture
-            for arch in arm64-v8a armeabi-v7a x86 x86_64; do
-              echo "Building for $arch..."
-              case $arch in
-                arm64-v8a)
-                  CC="$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android21-clang"
-                  GOARCH=arm64
-                  ;;
-                armeabi-v7a)
-                  CC="$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi21-clang"
-                  GOARCH=arm
-                  ;;
-                x86)
-                  CC="$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/i686-linux-android21-clang"
-                  GOARCH=386
-                  ;;
-                x86_64)
-                  CC="$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/x86_64-linux-android21-clang"
-                  GOARCH=amd64
-                  ;;
-              esac
-              
-              mkdir -p ../android/src/main/jniLibs/$arch
-              GOOS=android GOARCH=$GOARCH CGO_ENABLED=1 CC=$CC \
-                go build -buildmode=c-shared -o ../android/src/main/jniLibs/$arch/go_git_dart.so
-            done
+          cd go_git_dart_fork/src
+          
+          # Verify NDK toolchain exists
+          NDK_TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64"
+          if [ ! -d "$NDK_TOOLCHAIN" ]; then
+            echo "ERROR: NDK toolchain not found at $NDK_TOOLCHAIN"
+            ls -la $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/ || true
+            exit 1
           fi
+          
+          # Create output directories
+          mkdir -p ../android/src/main/jniLibs/{arm64-v8a,armeabi-v7a,x86,x86_64}
+          
+          # Common settings
+          export GOOS=android
+          export CGO_ENABLED=1
+          ANDROID_SDK_VERSION=21
+          
+          # Build for arm64-v8a
+          echo "Building for arm64-v8a..."
+          export GOARCH=arm64
+          export CC="$NDK_TOOLCHAIN/bin/aarch64-linux-android${ANDROID_SDK_VERSION}-clang"
+          export CXX="$NDK_TOOLCHAIN/bin/aarch64-linux-android${ANDROID_SDK_VERSION}-clang++"
+          go build -buildmode=c-shared -trimpath -o ../android/src/main/jniLibs/arm64-v8a/go_git_dart.so .
+          
+          # Build for armeabi-v7a
+          echo "Building for armeabi-v7a..."
+          export GOARCH=arm
+          export CC="$NDK_TOOLCHAIN/bin/armv7a-linux-androideabi${ANDROID_SDK_VERSION}-clang"
+          export CXX="$NDK_TOOLCHAIN/bin/armv7a-linux-androideabi${ANDROID_SDK_VERSION}-clang++"
+          go build -buildmode=c-shared -trimpath -o ../android/src/main/jniLibs/armeabi-v7a/go_git_dart.so .
+          
+          # Build for x86
+          echo "Building for x86..."
+          export GOARCH=386
+          export CC="$NDK_TOOLCHAIN/bin/i686-linux-android${ANDROID_SDK_VERSION}-clang"
+          export CXX="$NDK_TOOLCHAIN/bin/i686-linux-android${ANDROID_SDK_VERSION}-clang++"
+          go build -buildmode=c-shared -trimpath -o ../android/src/main/jniLibs/x86/go_git_dart.so .
+          
+          # Build for x86_64
+          echo "Building for x86_64..."
+          export GOARCH=amd64
+          export CC="$NDK_TOOLCHAIN/bin/x86_64-linux-android${ANDROID_SDK_VERSION}-clang"
+          export CXX="$NDK_TOOLCHAIN/bin/x86_64-linux-android${ANDROID_SDK_VERSION}-clang++"
+          go build -buildmode=c-shared -trimpath -o ../android/src/main/jniLibs/x86_64/go_git_dart.so .
           
           echo "=== Build complete ==="
           find ../android/src/main/jniLibs -name "*.so" -exec ls -lh {} \;
@@ -165,9 +171,6 @@ jobs:
           fi
           
           echo "=== Replacement complete ==="
-
-      # - name: Test (temporarily disabled)
-        # run: flutter test
 
       - name: Build APK (debug - no signing key needed)
         run: |
