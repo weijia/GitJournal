@@ -97,6 +97,9 @@ jobs:
 
           cd go_git_dart_fork/src
 
+          # Clear module cache to ensure fresh download of forked go-git
+          go clean -modcache
+
           # Verify replace directive is active
           echo "=== Verifying go-git replace directive ==="
           go mod graph | grep go-git || true
