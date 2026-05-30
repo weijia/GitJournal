@@ -55,31 +55,11 @@ Future<void> _clone({
   Log.i("Clone URL: $cloneUrl");
   Log.i("Repo Path: $repoPath");
 
-  // Pre-create the directory and set core.fileMode=false BEFORE clone
-  // This helps go-git handle repos with non-standard file permissions
-  try {
-    var dir = Directory(repoPath);
-    if (!dir.existsSync()) {
-      await dir.create(recursive: true);
-    }
-    var gitDir = Directory('$repoPath/.git');
-    if (!gitDir.existsSync()) {
-      await gitDir.create(recursive: true);
-      // Write a minimal config with core.fileMode=false
-      var configFile = File('$repoPath/.git/config');
-      await configFile.writeAsString(
-        '[core]\n'
-        '\tfileMode = false\n'
-        '\trepositoryformatversion = 0\n'
-        '\tfilemode = false\n'
-        '\tbare = false\n'
-        '\tlogallrefupdates = true\n'
-      );
-      Log.i("Pre-created .git/config with core.fileMode=false");
-    }
-  } catch (ex) {
-    Log.w("Failed to pre-create .git/config (non-fatal)", ex: ex);
-  }
+  // Do NOT pre-create .git/config here!
+  // go-git's PlainClone will create the repo from scratch.
+  // Pre-creating an incomplete .git directory causes go-git to treat it as
+  // a bare repo and fail with "Work tree not available in a bare repo".
+  // The malformed mode fallback is handled entirely in the Go layer.
 
   var bindings = GitBindingsAsync();
   try {
