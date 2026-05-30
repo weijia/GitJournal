@@ -65,7 +65,7 @@ android {
         // release uses same keystore as debug for CI builds
         // this allows OTA updates without managing release keys
         release {
-            storeFile rootProject.file('debug-keystore.jks')
+            storeFile file('debug-keystore.jks')
             storePassword 'gitjournal-debug-pass'
             keyAlias 'gitjournal-debug'
             keyPassword 'gitjournal-debug-pass'
