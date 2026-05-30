@@ -48,6 +48,9 @@ jobs:
       - name: Setup Env
         run: dart ./scripts/setup_env.dart
 
+      - name: Verify go_git_dart dependency
+        run: dart ./scripts/verify_go_git_dart.dart
+
       - name: Flutter Doctor
         run: flutter doctor -v
 
