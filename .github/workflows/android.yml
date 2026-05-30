@@ -86,6 +86,9 @@ jobs:
       - name: Build go_git_dart Android binaries
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          GONOSUMCHECK: github.com/weijia/go-git/v5
+          GONOSUMDB: github.com/weijia/go-git/v5
+          GOFLAGS: -mod=mod
         run: |
           set -eux
           echo "=== Building go_git_dart Android binaries ==="
