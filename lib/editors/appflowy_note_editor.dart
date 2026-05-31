@@ -10,6 +10,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'package:gitjournal/core/folder/notes_folder.dart';
 import 'package:gitjournal/core/note.dart';
 import 'package:gitjournal/core/notes/note.dart';
@@ -55,6 +56,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   StreamSubscription? _transactionSub;
   VoidCallback? _selectionListener;
   bool _isInTable = false;
+  Timer? _tableStateDebounceTimer;
 
   @override
   void initState() {
@@ -86,15 +88,21 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   }
 
   void _updateTableState() {
-    final wasInTable = _isInTable;
-    _isInTable = _isSelectionInTable();
-    if (wasInTable != _isInTable) {
-      setState(() {});
-    }
+    // Debounce table state updates to prevent UI freeze on old devices
+    _tableStateDebounceTimer?.cancel();
+    _tableStateDebounceTimer = Timer(const Duration(milliseconds: 50), () {
+      if (!mounted) return;
+      final wasInTable = _isInTable;
+      _isInTable = _isSelectionInTable();
+      if (wasInTable != _isInTable) {
+        setState(() {});
+      }
+    });
   }
 
   @override
   void dispose() {
+    _tableStateDebounceTimer?.cancel();
     _transactionSub?.cancel();
     if (_selectionListener != null) {
       _editorState.selectionNotifier.removeListener(_selectionListener!);
@@ -248,9 +256,26 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     );
   }
 
+  // Cache toolbar widgets to avoid rebuilding on every frame
+  List<Widget>? _cachedNormalToolbar;
+  List<Widget>? _cachedTableToolbar;
+  ColorScheme? _cachedColorScheme;
+
   Widget _buildToolbar(ColorScheme colorScheme) {
     // Use cached _isInTable value instead of recalculating on every build
     // _isInTable is already updated by _updateTableState() on selection changes
+    
+    // Rebuild toolbar cache if color scheme changed
+    if (_cachedColorScheme != colorScheme) {
+      _cachedColorScheme = colorScheme;
+      _cachedNormalToolbar = null;
+      _cachedTableToolbar = null;
+    }
+    
+    final toolbarChildren = _isInTable
+        ? (_cachedTableToolbar ??= _buildTableToolbar(colorScheme))
+        : (_cachedNormalToolbar ??= _buildNormalToolbar(colorScheme));
+    
     return Material(
       color: colorScheme.surfaceContainerLow,
       child: Container(
@@ -258,9 +283,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-            children: _isInTable
-                ? _buildTableToolbar(colorScheme)
-                : _buildNormalToolbar(colorScheme),
+            children: toolbarChildren,
           ),
         ),
       ),
