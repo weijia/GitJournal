@@ -10,7 +10,6 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
 import 'package:gitjournal/core/folder/notes_folder.dart';
 import 'package:gitjournal/core/note.dart';
 import 'package:gitjournal/core/notes/note.dart';
@@ -216,7 +215,8 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       editorState: _editorState,
       editable: true,
       autoFocus: true,
-      editorStyle: EditorStyle.desktop(
+      showMagnifier: false,
+      editorStyle: EditorStyle.mobile(
         padding: const EdgeInsets.all(16),
         cursorColor: colorScheme.primary,
         selectionColor: colorScheme.primaryContainer.withValues(alpha: 0.4),
