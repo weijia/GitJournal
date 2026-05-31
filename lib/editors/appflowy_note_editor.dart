@@ -73,10 +73,13 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
         });
         notifyListeners();
       }
+      // Also update table state on every transaction
+      _updateTableState();
     });
 
-    // Track selection changes to update toolbar
-    _selectionSub = _editorState.transactionStream.listen((_) {
+    // Use selectionNotifier for table state tracking instead of transactionStream
+    // to avoid double-triggering from the transaction listener above
+    _selectionSub = _editorState.selectionNotifier.addListener(() {
       _updateTableState();
     });
   }
@@ -115,12 +118,13 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   bool _isSelectionInTable() {
     final sel = _editorState.selection;
     if (sel == null) return false;
-    for (int i = sel.start.path.length - 1; i >= 0; i--) {
-      final path = sel.start.path.sublist(0, i + 1);
-      final node = _editorState.getNodeAtPath(path);
-      if (node != null && node.type == TableBlockKeys.type) {
+    // Walk up the path from selection to root, checking each ancestor
+    Node? current = _editorState.getNodeAtPath(sel.start.path);
+    while (current != null) {
+      if (current.type == TableBlockKeys.type) {
         return true;
       }
+      current = current.parent;
     }
     return false;
   }
@@ -242,9 +246,8 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   }
 
   Widget _buildToolbar(ColorScheme colorScheme) {
-    // Check table state on every build to ensure it's up to date
-    final isInTable = _isSelectionInTable();
-
+    // Use cached _isInTable value instead of recalculating on every build
+    // _isInTable is already updated by _updateTableState() on selection changes
     return Material(
       color: colorScheme.surfaceContainerLow,
       child: Container(
@@ -252,7 +255,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-            children: isInTable
+            children: _isInTable
                 ? _buildTableToolbar(colorScheme)
                 : _buildNormalToolbar(colorScheme),
           ),
