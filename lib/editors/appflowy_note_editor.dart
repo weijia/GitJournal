@@ -53,7 +53,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   bool _isModified = false;
   late Note _note;
   StreamSubscription? _transactionSub;
-  StreamSubscription? _selectionSub;
+  VoidCallback? _selectionListener;
   bool _isInTable = false;
 
   @override
@@ -79,9 +79,10 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
 
     // Use selectionNotifier for table state tracking instead of transactionStream
     // to avoid double-triggering from the transaction listener above
-    _selectionSub = _editorState.selectionNotifier.addListener(() {
+    _selectionListener = () {
       _updateTableState();
-    });
+    };
+    _editorState.selectionNotifier.addListener(_selectionListener!);
   }
 
   void _updateTableState() {
@@ -95,7 +96,9 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   @override
   void dispose() {
     _transactionSub?.cancel();
-    _selectionSub?.cancel();
+    if (_selectionListener != null) {
+      _editorState.selectionNotifier.removeListener(_selectionListener!);
+    }
     _titleController.dispose();
     super.dispose();
   }
