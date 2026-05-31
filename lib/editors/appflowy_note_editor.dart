@@ -68,6 +68,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     _editorState = EditorState(document: document);
 
     _transactionSub = _editorState.transactionStream.listen((_) {
+      debugPrint('[Transaction] received');
       if (!_isModified) {
         setState(() {
           _isModified = true;
@@ -81,6 +82,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     // Use selectionNotifier for table state tracking instead of transactionStream
     // to avoid double-triggering from the transaction listener above
     _selectionListener = () {
+      debugPrint('[Selection] changed');
       _updateTableState();
     };
     _editorState.selectionNotifier.addListener(_selectionListener!);
@@ -91,9 +93,13 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     _tableStateDebounceTimer?.cancel();
     _tableStateDebounceTimer = Timer(const Duration(milliseconds: 50), () {
       if (!mounted) return;
+      final stopwatch = Stopwatch()..start();
       final wasInTable = _isInTable;
       _isInTable = _isSelectionInTable();
+      stopwatch.stop();
+      debugPrint('[TableState] _isSelectionInTable took ${stopwatch.elapsedMilliseconds}ms, wasInTable=$wasInTable, isInTable=$_isInTable');
       if (wasInTable != _isInTable) {
+        debugPrint('[TableState] Calling setState to switch toolbar');
         setState(() {});
       }
     });
@@ -165,9 +171,12 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
 
   @override
   Widget build(BuildContext context) {
+    final buildStopwatch = Stopwatch()..start();
     final colorScheme = Theme.of(context).colorScheme;
+    
+    debugPrint('[Build] AppFlowyNoteEditor.build start, _isInTable=$_isInTable');
 
-    return gj.EditorScaffold(
+    final result = gj.EditorScaffold(
       startingNote: widget.note,
       editor: widget,
       editorState: this,
@@ -208,6 +217,10 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       redoAllowed: false,
       findAllowed: false,
     );
+    
+    buildStopwatch.stop();
+    debugPrint('[Build] AppFlowyNoteEditor.build end, took ${buildStopwatch.elapsedMilliseconds}ms');
+    return result;
   }
 
   Widget _buildEditor(ColorScheme colorScheme) {
