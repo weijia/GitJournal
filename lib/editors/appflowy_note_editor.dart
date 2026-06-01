@@ -56,6 +56,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   VoidCallback? _selectionListener;
   bool _isInTable = false;
   Timer? _tableStateDebounceTimer;
+  bool _isUpdatingTableState = false;  // 防止递归
 
   @override
   void initState() {
@@ -89,10 +90,18 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   }
 
   void _updateTableState() {
+    // Prevent recursive calls that cause Stack Overflow
+    if (_isUpdatingTableState) {
+      debugPrint('[TableState] Skipping recursive call');
+      return;
+    }
+    
     // Debounce table state updates to prevent UI freeze on old devices
     _tableStateDebounceTimer?.cancel();
     _tableStateDebounceTimer = Timer(const Duration(milliseconds: 50), () {
       if (!mounted) return;
+      
+      _isUpdatingTableState = true;
       final stopwatch = Stopwatch()..start();
       final wasInTable = _isInTable;
       _isInTable = _isSelectionInTable();
@@ -102,6 +111,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
         debugPrint('[TableState] Calling setState to switch toolbar');
         setState(() {});
       }
+      _isUpdatingTableState = false;
     });
   }
 
