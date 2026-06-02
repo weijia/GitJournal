@@ -47,7 +47,8 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   bool _isModified = false;
   late Note _note;
   StreamSubscription? _transactionSub;
-  bool _showTableToolbar = false;  // 手动控制，不再自动检测
+  VoidCallback? _selectionListener;
+  bool _isInTable = false;
 
   @override
   void initState() {
@@ -59,7 +60,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     final document = markdownToDocument(_note.body);
     _editorState = EditorState(document: document);
 
-    // 只监听 transaction 用于标记修改，不监听 selection
+    // 监听 transaction 用于标记修改
     _transactionSub = _editorState.transactionStream.listen((_) {
       if (!_isModified) {
         setState(() {
@@ -68,11 +69,31 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
         notifyListeners();
       }
     });
+
+    // 监听 selection 变化用于切换工具栏
+    _selectionListener = () {
+      _updateTableState();
+    };
+    _editorState.selectionNotifier.addListener(_selectionListener!);
+  }
+
+  void _updateTableState() {
+    if (!mounted) return;
+    
+    final wasInTable = _isInTable;
+    _isInTable = _isSelectionInTable();
+    
+    if (wasInTable != _isInTable) {
+      setState(() {});
+    }
   }
 
   @override
   void dispose() {
     _transactionSub?.cancel();
+    if (_selectionListener != null) {
+      _editorState.selectionNotifier.removeListener(_selectionListener!);
+    }
     _titleController.dispose();
     super.dispose();
   }
@@ -89,6 +110,20 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       final document = markdownToDocument(_note.body);
       _editorState = EditorState(document: document);
     }
+  }
+
+  /// Check if current selection is inside a table
+  bool _isSelectionInTable() {
+    final sel = _editorState.selection;
+    if (sel == null) return false;
+    Node? current = _editorState.getNodeAtPath(sel.start.path);
+    while (current != null) {
+      if (current.type == TableBlockKeys.type) {
+        return true;
+      }
+      current = current.parent;
+    }
+    return false;
   }
 
   /// Find table node from current selection
@@ -216,16 +251,16 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-            children: _showTableToolbar
-                ? _buildTableToolbarWithSwitch(colorScheme)
-                : _buildNormalToolbarWithSwitch(colorScheme),
+            children: _isInTable
+                ? _buildTableToolbar(colorScheme)
+                : _buildNormalToolbar(colorScheme),
           ),
         ),
       ),
     );
   }
 
-  List<Widget> _buildNormalToolbarWithSwitch(ColorScheme colorScheme) {
+  List<Widget> _buildNormalToolbar(ColorScheme colorScheme) {
     return [
       _buildToolbarButton(
         icon: Icons.title,
@@ -287,30 +322,14 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
         onPressed: () => _toggleBlockType(QuoteBlockKeys.type),
       ),
       _buildToolbarButton(
-        icon: Icons.code,
-        tooltip: 'Code Block',
-        onPressed: () => _toggleBlockType(CodeBlockKeys.type),
-      ),
-      _buildToolbarButton(
         icon: Icons.table_chart,
         tooltip: 'Insert Table',
         onPressed: _showInsertTableDialog,
       ),
-      // 手动切换到表格工具栏
-      _buildDivider(colorScheme),
-      _buildToolbarButton(
-        icon: Icons.grid_view,
-        tooltip: 'Table Tools',
-        onPressed: () {
-          setState(() {
-            _showTableToolbar = true;
-          });
-        },
-      ),
     ];
   }
 
-  List<Widget> _buildTableToolbarWithSwitch(ColorScheme colorScheme) {
+  List<Widget> _buildTableToolbar(ColorScheme colorScheme) {
     return [
       _buildToolbarButton(
         icon: Icons.table_chart,
@@ -338,17 +357,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
         icon: Icons.content_copy,
         tooltip: 'Table: Duplicate Row',
         onPressed: _tableDuplicateRow,
-      ),
-      // 切换回普通工具栏
-      _buildDivider(colorScheme),
-      _buildToolbarButton(
-        icon: Icons.arrow_back,
-        tooltip: 'Back to Normal Tools',
-        onPressed: () {
-          setState(() {
-            _showTableToolbar = false;
-          });
-        },
       ),
     ];
   }
@@ -389,7 +397,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       debugPrint('No node at selection');
       return;
     }
-    // If already this type, convert back to paragraph
     final newType = node.type == targetType ? ParagraphBlockKeys.type : targetType;
     debugPrint('Toggling block: ${node.type} -> $newType at path ${selection.start.path}');
     _editorState.formatNode(
@@ -414,13 +421,11 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     final newType = isTodo ? ParagraphBlockKeys.type : TodoListBlockKeys.type;
     debugPrint('Toggling todo: ${node.type} -> $newType');
     if (isTodo) {
-      // Convert back to paragraph
       _editorState.formatNode(
         selection,
         (node) => node.copyWith(type: newType),
       );
     } else {
-      // Convert to todo with unchecked state
       _editorState.formatNode(
         selection,
         (node) => node.copyWith(
@@ -448,7 +453,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     }
     final isHeading = node.type == HeadingBlockKeys.type;
     final currentLevel = node.attributes[HeadingBlockKeys.level] ?? 1;
-    // If already this heading level, convert back to paragraph
     final shouldToggleOff = isHeading && currentLevel == level;
     final newType = shouldToggleOff ? ParagraphBlockKeys.type : HeadingBlockKeys.type;
     final newAttributes = shouldToggleOff
