@@ -1,13 +1,9 @@
-/*
- * SPDX-FileCopyrightText: 2019-2021 Vishesh Handa <me@vhanda.in>
- *
- * SPDX-License-Identifier: AGPL-3.0-or-later
- */
-
+// SPDX-FileCopyrightText: 2019-2021 Vishesh Handa <me@vhanda.in>
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
 // TAG: AppFlowy Editor Support v2
 // Features: WYSIWYG editing, Tables, Bullet/Numbered lists, Checkboxes, Headings
 // Build: 61
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:gitjournal/core/folder/notes_folder.dart';
@@ -22,10 +18,8 @@ class AppFlowyNoteEditor extends StatefulWidget implements gj.Editor {
   final Note note;
   final NotesFolder parentFolder;
   final bool noteModified;
-
   @override
   final gj.EditorCommon common;
-
   final bool editMode;
   final String? highlightString;
   final ThemeData theme;
@@ -53,10 +47,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   bool _isModified = false;
   late Note _note;
   StreamSubscription? _transactionSub;
-  VoidCallback? _selectionListener;
-  bool _isInTable = false;
-  Timer? _tableStateDebounceTimer;
-  bool _isUpdatingTableState = false;  // 防止递归
+  bool _showTableToolbar = false;  // 手动控制，不再自动检测
 
   @override
   void initState() {
@@ -68,60 +59,20 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     final document = markdownToDocument(_note.body);
     _editorState = EditorState(document: document);
 
+    // 只监听 transaction 用于标记修改，不监听 selection
     _transactionSub = _editorState.transactionStream.listen((_) {
-      debugPrint('[Transaction] received');
       if (!_isModified) {
         setState(() {
           _isModified = true;
         });
         notifyListeners();
       }
-      // Also update table state on every transaction
-      _updateTableState();
-    });
-
-    // Use selectionNotifier for table state tracking instead of transactionStream
-    // to avoid double-triggering from the transaction listener above
-    _selectionListener = () {
-      debugPrint('[Selection] changed');
-      _updateTableState();
-    };
-    _editorState.selectionNotifier.addListener(_selectionListener!);
-  }
-
-  void _updateTableState() {
-    // Prevent recursive calls that cause Stack Overflow
-    if (_isUpdatingTableState) {
-      debugPrint('[TableState] Skipping recursive call');
-      return;
-    }
-    
-    // Debounce table state updates to prevent UI freeze on old devices
-    _tableStateDebounceTimer?.cancel();
-    _tableStateDebounceTimer = Timer(const Duration(milliseconds: 50), () {
-      if (!mounted) return;
-      
-      _isUpdatingTableState = true;
-      final stopwatch = Stopwatch()..start();
-      final wasInTable = _isInTable;
-      _isInTable = _isSelectionInTable();
-      stopwatch.stop();
-      debugPrint('[TableState] _isSelectionInTable took ${stopwatch.elapsedMilliseconds}ms, wasInTable=$wasInTable, isInTable=$_isInTable');
-      if (wasInTable != _isInTable) {
-        debugPrint('[TableState] Calling setState to switch toolbar');
-        setState(() {});
-      }
-      _isUpdatingTableState = false;
     });
   }
 
   @override
   void dispose() {
-    _tableStateDebounceTimer?.cancel();
     _transactionSub?.cancel();
-    if (_selectionListener != null) {
-      _editorState.selectionNotifier.removeListener(_selectionListener!);
-    }
     _titleController.dispose();
     super.dispose();
   }
@@ -138,21 +89,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       final document = markdownToDocument(_note.body);
       _editorState = EditorState(document: document);
     }
-  }
-
-  /// Check if current selection is inside a table
-  bool _isSelectionInTable() {
-    final sel = _editorState.selection;
-    if (sel == null) return false;
-    // Walk up the path from selection to root, checking each ancestor
-    Node? current = _editorState.getNodeAtPath(sel.start.path);
-    while (current != null) {
-      if (current.type == TableBlockKeys.type) {
-        return true;
-      }
-      current = current.parent;
-    }
-    return false;
   }
 
   /// Find table node from current selection
@@ -181,12 +117,9 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
 
   @override
   Widget build(BuildContext context) {
-    final buildStopwatch = Stopwatch()..start();
     final colorScheme = Theme.of(context).colorScheme;
-    
-    debugPrint('[Build] AppFlowyNoteEditor.build start, _isInTable=$_isInTable');
 
-    final result = gj.EditorScaffold(
+    return gj.EditorScaffold(
       startingNote: widget.note,
       editor: widget,
       editorState: this,
@@ -227,10 +160,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       redoAllowed: false,
       findAllowed: false,
     );
-    
-    buildStopwatch.stop();
-    debugPrint('[Build] AppFlowyNoteEditor.build end, took ${buildStopwatch.elapsedMilliseconds}ms');
-    return result;
   }
 
   Widget _buildEditor(ColorScheme colorScheme) {
@@ -279,26 +208,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     );
   }
 
-  // Cache toolbar widgets to avoid rebuilding on every frame
-  List<Widget>? _cachedNormalToolbar;
-  List<Widget>? _cachedTableToolbar;
-  ColorScheme? _cachedColorScheme;
-
   Widget _buildToolbar(ColorScheme colorScheme) {
-    // Use cached _isInTable value instead of recalculating on every build
-    // _isInTable is already updated by _updateTableState() on selection changes
-    
-    // Rebuild toolbar cache if color scheme changed
-    if (_cachedColorScheme != colorScheme) {
-      _cachedColorScheme = colorScheme;
-      _cachedNormalToolbar = null;
-      _cachedTableToolbar = null;
-    }
-    
-    final toolbarChildren = _isInTable
-        ? (_cachedTableToolbar ??= _buildTableToolbar(colorScheme))
-        : (_cachedNormalToolbar ??= _buildNormalToolbar(colorScheme));
-    
     return Material(
       color: colorScheme.surfaceContainerLow,
       child: Container(
@@ -306,14 +216,16 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-            children: toolbarChildren,
+            children: _showTableToolbar
+                ? _buildTableToolbarWithSwitch(colorScheme)
+                : _buildNormalToolbarWithSwitch(colorScheme),
           ),
         ),
       ),
     );
   }
 
-  List<Widget> _buildNormalToolbar(ColorScheme colorScheme) {
+  List<Widget> _buildNormalToolbarWithSwitch(ColorScheme colorScheme) {
     return [
       _buildToolbarButton(
         icon: Icons.title,
@@ -377,17 +289,28 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       _buildToolbarButton(
         icon: Icons.code,
         tooltip: 'Code Block',
-        onPressed: () => _toggleBlockType(BuiltInAttributeKey.code),
+        onPressed: () => _toggleBlockType(CodeBlockKeys.type),
       ),
       _buildToolbarButton(
         icon: Icons.table_chart,
         tooltip: 'Insert Table',
         onPressed: _showInsertTableDialog,
       ),
+      // 手动切换到表格工具栏
+      _buildDivider(colorScheme),
+      _buildToolbarButton(
+        icon: Icons.grid_view,
+        tooltip: 'Table Tools',
+        onPressed: () {
+          setState(() {
+            _showTableToolbar = true;
+          });
+        },
+      ),
     ];
   }
 
-  List<Widget> _buildTableToolbar(ColorScheme colorScheme) {
+  List<Widget> _buildTableToolbarWithSwitch(ColorScheme colorScheme) {
     return [
       _buildToolbarButton(
         icon: Icons.table_chart,
@@ -415,6 +338,17 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
         icon: Icons.content_copy,
         tooltip: 'Table: Duplicate Row',
         onPressed: _tableDuplicateRow,
+      ),
+      // 切换回普通工具栏
+      _buildDivider(colorScheme),
+      _buildToolbarButton(
+        icon: Icons.arrow_back,
+        tooltip: 'Back to Normal Tools',
+        onPressed: () {
+          setState(() {
+            _showTableToolbar = false;
+          });
+        },
       ),
     ];
   }
@@ -450,18 +384,14 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       debugPrint('No selection available');
       return;
     }
-
     final node = _editorState.getNodeAtPath(selection.start.path);
     if (node == null) {
       debugPrint('No node at selection');
       return;
     }
-
     // If already this type, convert back to paragraph
     final newType = node.type == targetType ? ParagraphBlockKeys.type : targetType;
-
     debugPrint('Toggling block: ${node.type} -> $newType at path ${selection.start.path}');
-
     _editorState.formatNode(
       selection,
       (node) => node.copyWith(type: newType),
@@ -475,18 +405,14 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       debugPrint('No selection available');
       return;
     }
-
     final node = _editorState.getNodeAtPath(selection.start.path);
     if (node == null) {
       debugPrint('No node at selection');
       return;
     }
-
     final isTodo = node.type == TodoListBlockKeys.type;
     final newType = isTodo ? ParagraphBlockKeys.type : TodoListBlockKeys.type;
-
     debugPrint('Toggling todo: ${node.type} -> $newType');
-
     if (isTodo) {
       // Convert back to paragraph
       _editorState.formatNode(
@@ -515,25 +441,20 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       debugPrint('No selection available');
       return;
     }
-
     final node = _editorState.getNodeAtPath(selection.start.path);
     if (node == null) {
       debugPrint('No node at selection');
       return;
     }
-
     final isHeading = node.type == HeadingBlockKeys.type;
     final currentLevel = node.attributes[HeadingBlockKeys.level] ?? 1;
-
     // If already this heading level, convert back to paragraph
     final shouldToggleOff = isHeading && currentLevel == level;
     final newType = shouldToggleOff ? ParagraphBlockKeys.type : HeadingBlockKeys.type;
     final newAttributes = shouldToggleOff
         ? <String, dynamic>{}
         : {...node.attributes, HeadingBlockKeys.level: level};
-
     debugPrint('Toggling heading: ${node.type} -> $newType level $level');
-
     _editorState.formatNode(
       selection,
       (node) => node.copyWith(
@@ -544,7 +465,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   }
 
   // --- Table Operations ---
-
   void _showInsertTableDialog() {
     showDialog(
       context: context,
@@ -558,17 +478,13 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     final sel = _editorState.selection;
     final lastPath = [_editorState.document.root.children.length - 1];
     final insertPath = sel?.end.path ?? lastPath;
-
     final tableData = List.generate(
       cols,
       (_) => List.generate(rows, (_) => ''),
     );
-
     final tableNode = TableNode.fromList(tableData);
-
     final transaction = _editorState.transaction;
     final currentNode = _editorState.getNodeAtPath(insertPath);
-
     if (currentNode != null &&
         currentNode.delta != null &&
         currentNode.delta!.isEmpty) {
@@ -577,11 +493,9 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     } else {
       transaction.insertNode(insertPath.next, tableNode.node);
     }
-
     transaction.afterSelection = Selection.collapsed(
       Position(path: insertPath + [0, 0], offset: 0),
     );
-
     _editorState.apply(transaction);
     debugPrint('Inserted table ${rows}x$cols');
   }
@@ -590,133 +504,98 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     final tableNode = _findTableNode();
     final cellPos = _getTableCellPosition();
     if (tableNode == null || cellPos == null) {
-      debugPrint('Not in table cell');
+      debugPrint('No table or cell position found');
       return;
     }
-
-    TableActions.add(
-      tableNode,
-      cellPos.key,
-      _editorState,
-      TableDirection.row,
+    final transaction = _editorState.transaction;
+    final newRow = tableNode.children[cellPos.value].copyWith();
+    transaction.insertNode(
+      tableNode.children[cellPos.value].path.next,
+      newRow,
     );
-    debugPrint('Added row after ${cellPos.key}');
+    _editorState.apply(transaction);
+    debugPrint('Added row at index ${cellPos.value}');
   }
 
   void _tableAddColumn() {
     final tableNode = _findTableNode();
-    final cellPos = _getTableCellPosition();
-    if (tableNode == null || cellPos == null) {
-      debugPrint('Not in table cell');
+    if (tableNode == null) {
+      debugPrint('No table found');
       return;
     }
-
-    TableActions.add(
-      tableNode,
-      cellPos.value,
-      _editorState,
-      TableDirection.col,
-    );
-    debugPrint('Added column after ${cellPos.value}');
+    final cellPos = _getTableCellPosition();
+    if (cellPos == null) {
+      debugPrint('No cell position found');
+      return;
+    }
+    final transaction = _editorState.transaction;
+    for (final row in tableNode.children) {
+      final newCell = simpleTableCellBlockNode();
+      transaction.insertNode(
+        row.children[cellPos.key].path.next,
+        newCell,
+      );
+    }
+    _editorState.apply(transaction);
+    debugPrint('Added column at index ${cellPos.key}');
   }
 
   void _tableDeleteRow() {
     final tableNode = _findTableNode();
     final cellPos = _getTableCellPosition();
     if (tableNode == null || cellPos == null) {
-      debugPrint('Not in table cell');
+      debugPrint('No table or cell position found');
       return;
     }
-
-    final table = TableNode(node: tableNode);
-    if (table.rowsLen <= 1) {
-      debugPrint('Cannot delete last row');
-      return;
-    }
-
-    TableActions.delete(
-      tableNode,
-      cellPos.key,
-      _editorState,
-      TableDirection.row,
-    );
-    debugPrint('Deleted row ${cellPos.key}');
+    final transaction = _editorState.transaction;
+    transaction.deleteNode(tableNode.children[cellPos.value]);
+    _editorState.apply(transaction);
+    debugPrint('Deleted row at index ${cellPos.value}');
   }
 
   void _tableDeleteColumn() {
     final tableNode = _findTableNode();
+    if (tableNode == null) {
+      debugPrint('No table found');
+      return;
+    }
     final cellPos = _getTableCellPosition();
-    if (tableNode == null || cellPos == null) {
-      debugPrint('Not in table cell');
+    if (cellPos == null) {
+      debugPrint('No cell position found');
       return;
     }
-
-    final table = TableNode(node: tableNode);
-    if (table.colsLen <= 1) {
-      debugPrint('Cannot delete last column');
-      return;
+    final transaction = _editorState.transaction;
+    for (final row in tableNode.children) {
+      transaction.deleteNode(row.children[cellPos.key]);
     }
-
-    TableActions.delete(
-      tableNode,
-      cellPos.value,
-      _editorState,
-      TableDirection.col,
-    );
-    debugPrint('Deleted column ${cellPos.value}');
+    _editorState.apply(transaction);
+    debugPrint('Deleted column at index ${cellPos.key}');
   }
 
   void _tableDuplicateRow() {
     final tableNode = _findTableNode();
     final cellPos = _getTableCellPosition();
     if (tableNode == null || cellPos == null) {
-      debugPrint('Not in table cell');
+      debugPrint('No table or cell position found');
       return;
     }
-
-    TableActions.duplicate(
-      tableNode,
-      cellPos.key,
-      _editorState,
-      TableDirection.row,
-    );
-    debugPrint('Duplicated row ${cellPos.key}');
+    final rowToCopy = tableNode.children[cellPos.value];
+    final transaction = _editorState.transaction;
+    final newRow = rowToCopy.copyWith();
+    transaction.insertNode(rowToCopy.path.next, newRow);
+    _editorState.apply(transaction);
+    debugPrint('Duplicated row at index ${cellPos.value}');
   }
-
-  // --- Editor State ---
-
-  @override
-  Note getNote() {
-    final body = documentToMarkdown(_editorState.document);
-    return _note.copyWith(
-      body: body,
-      title: _titleController.text.trim(),
-      type: NoteType.Unknown,
-    );
-  }
-
-  @override
-  bool get noteModified => _isModified;
-
-  @override
-  Future<void> addImage(String filePath) async {}
-
-  @override
-  gj.SearchInfo search(String? text) {
-    return gj.SearchInfo.compute(body: _note.body, text: text);
-  }
-
-  @override
-  void scrollToResult(String text, int num) {}
 }
 
+// --- Insert Table Dialog ---
 class _InsertTableDialog extends StatefulWidget {
   final Function(int rows, int cols) onInsert;
 
   const _InsertTableDialog({required this.onInsert});
 
   @override
-  State<_InsertTableDialog> createState() => _InsertTableDialogState();
+  _InsertTableDialogState createState() => _InsertTableDialogState();
 }
 
 class _InsertTableDialogState extends State<_InsertTableDialog> {
@@ -733,7 +612,6 @@ class _InsertTableDialogState extends State<_InsertTableDialog> {
           Row(
             children: [
               const Text('Rows:'),
-              const SizedBox(width: 16),
               Expanded(
                 child: Slider(
                   value: _rows.toDouble(),
@@ -743,18 +621,17 @@ class _InsertTableDialogState extends State<_InsertTableDialog> {
                   label: _rows.toString(),
                   onChanged: (value) {
                     setState(() {
-                      _rows = value.round();
+                      _rows = value.toInt();
                     });
                   },
                 ),
               ),
-              Text('$_rows'),
+              Text(_rows.toString()),
             ],
           ),
           Row(
             children: [
-              const Text('Cols:'),
-              const SizedBox(width: 16),
+              const Text('Columns:'),
               Expanded(
                 child: Slider(
                   value: _cols.toDouble(),
@@ -764,25 +641,25 @@ class _InsertTableDialogState extends State<_InsertTableDialog> {
                   label: _cols.toString(),
                   onChanged: (value) {
                     setState(() {
-                      _cols = value.round();
+                      _cols = value.toInt();
                     });
                   },
                 ),
               ),
-              Text('$_cols'),
+              Text(_cols.toString()),
             ],
           ),
         ],
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        FilledButton(
+        TextButton(
           onPressed: () {
             widget.onInsert(_rows, _cols);
-            Navigator.of(context).pop();
+            Navigator.pop(context);
           },
           child: const Text('Insert'),
         ),
