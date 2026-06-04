@@ -151,6 +151,28 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   }
 
   @override
+  Note getNote() => _note;
+
+  @override
+  Future<void> addImage(String filePath) async {
+    // TODO: Implement image insertion
+  }
+
+  @override
+  bool get noteModified => _isModified;
+
+  @override
+  gj.SearchInfo search(String? text) {
+    // TODO: Implement search
+    return gj.SearchInfo();
+  }
+
+  @override
+  void scrollToResult(String text, int num) {
+    // TODO: Implement scroll to result
+  }
+
+  @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -534,7 +556,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     }
     final transaction = _editorState.transaction;
     for (final row in tableNode.children) {
-      final newCell = simpleTableCellBlockNode();
+      final newCell = tableCellNode(text: '', rowPosition: row.attributes[TableCellBlockKeys.rowPosition] as int? ?? 0, colPosition: cellPos.key);
       transaction.insertNode(
         row.children[cellPos.key].path.next,
         newCell,
