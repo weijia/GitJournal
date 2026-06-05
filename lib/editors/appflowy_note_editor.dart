@@ -556,7 +556,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     }
     final transaction = _editorState.transaction;
     for (final row in tableNode.children) {
-      final newCell = tableCellNode(text: '', rowPosition: row.attributes[TableCellBlockKeys.rowPosition] as int? ?? 0, colPosition: cellPos.key);
+      final newCell = tableCellNode('', row.attributes[TableCellBlockKeys.rowPosition] as int? ?? 0, cellPos.key);
       transaction.insertNode(
         row.children[cellPos.key].path.next,
         newCell,
