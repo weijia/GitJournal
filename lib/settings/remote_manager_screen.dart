@@ -5,7 +5,6 @@
  */
 
 import 'package:flutter/material.dart';
-import 'package:gitjournal/l10n.dart';
 import 'package:gitjournal/repository.dart';
 import 'package:gitjournal/settings/remote_config.dart';
 
