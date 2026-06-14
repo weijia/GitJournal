@@ -167,14 +167,14 @@ jobs:
             cp -r go_git_dart_fork/android/src/main/jniLibs "$PUB_CACHE_DIR/android/src/main/"
           fi
 
-          flutter build apk --release \
+          flutter build apk --release --flavor dev \
             --build-number="$BUILD_NUM"
 
       - name: Prepare APK for upload
         run: |
           mkdir -p upload
           BUILD_NUM=$(git rev-list --count HEAD)
-          cp build/app/outputs/flutter-apk/app-release.apk "upload/gitjournal-v${BUILD_NUM}.apk"
+          cp build/app/outputs/flutter-apk/app-dev-release.apk "upload/gitjournal-v${BUILD_NUM}.apk"
           ls -la upload/
 
       - name: Upload APK to SFTP
