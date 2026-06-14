@@ -48,6 +48,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   late Note _note;
   StreamSubscription? _transactionSub;
   String _originalMarkdown = '';  // 保存原始 Markdown，用于未修改时恢复
+  String _initialEditorContent = '';  // 保存初始编辑器内容（Markdown 格式），用于检测是否真正修改
   VoidCallback? _selectionListener;
   bool _isInTable = false;
 
@@ -61,6 +62,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     _originalMarkdown = _note.body;  // 保存原始 Markdown
     final document = markdownToDocument(_note.body);
     _editorState = EditorState(document: document);
+    _initialEditorContent = documentToMarkdown(_editorState.document);  // 保存初始编辑器内容
 
     // 监听 transaction 用于标记修改
     _transactionSub = _editorState.transactionStream.listen((_) {
@@ -155,18 +157,22 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   @override
   @override
   Note getNote() {
-    // 如果没有修改，返回原始 Markdown（避免被规范化）
-    if (!_isModified) {
+    final currentContent = documentToMarkdown(_editorState.document);
+    
+    // 比较当前内容和初始内容，判断是否真正修改过
+    // 这样可以处理编辑后又撤销的情况
+    if (currentContent == _initialEditorContent) {
+      // 内容未改变，返回原始 Markdown（避免被规范化）
       return _note.copyWith(
         body: _originalMarkdown,
         title: _titleController.text.trim(),
         type: NoteType.Unknown,
       );
     }
-    // 有修改时才从编辑器获取内容
-    final body = documentToMarkdown(_editorState.document);
+    
+    // 内容真正改变了，返回编辑器内容
     return _note.copyWith(
-      body: body,
+      body: currentContent,
       title: _titleController.text.trim(),
       type: NoteType.Unknown,
     );
