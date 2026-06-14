@@ -6,11 +6,11 @@ name: Build and Upload APK to SFTP
 on:
   push:
     branches:
-      - main
+      - master
   workflow_dispatch:
 
 env:
-  GO_VERSION: '1.21'
+  GO_VERSION: '1.25'
   GO_GIT_DART_REPO: 'weijia/go_git_dart'
 
 jobs:
@@ -154,7 +154,6 @@ jobs:
 
       - name: Prepare APK for upload
         run: |
-          # Create upload directory with versioned filename
           mkdir -p upload
           BUILD_NUM=$(git rev-list --count HEAD)
           cp build/app/outputs/flutter-apk/app-dev-debug.apk "upload/gitjournal-v${BUILD_NUM}.apk"
