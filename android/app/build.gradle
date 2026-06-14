@@ -63,15 +63,11 @@ android {
             }
         }
         release {
-            // Use release keystore if available, fallback to debug keystore
-            def releaseKeystorePath = System.getenv('KEYSTORE_PATH') ?: 'debug-keystore.jks'
-            def releaseKeystoreFile = rootProject.file(releaseKeystorePath)
-            if (releaseKeystoreFile.exists()) {
-                storeFile releaseKeystoreFile
-                storePassword System.getenv('KEYSTORE_PASSWORD') ?: System.getenv('DEBUG_KEYSTORE_PASSWORD') ?: 'gitjournal-debug-pass'
-                keyAlias System.getenv('KEY_ALIAS') ?: System.getenv('DEBUG_KEY_ALIAS') ?: 'gitjournal-debug'
-                keyPassword System.getenv('KEY_PASSWORD') ?: System.getenv('DEBUG_KEY_PASSWORD') ?: 'gitjournal-debug-pass'
-            }
+            // Use debug keystore for release builds (same as debug for OTA updates)
+            storeFile file('debug-keystore.jks')
+            storePassword System.getenv('KEYSTORE_PASSWORD') ?: System.getenv('DEBUG_KEYSTORE_PASSWORD') ?: 'gitjournal-debug-pass'
+            keyAlias System.getenv('KEY_ALIAS') ?: System.getenv('DEBUG_KEY_ALIAS') ?: 'gitjournal-debug'
+            keyPassword System.getenv('KEY_PASSWORD') ?: System.getenv('DEBUG_KEY_PASSWORD') ?: 'gitjournal-debug-pass'
         }
     }
     buildTypes {
