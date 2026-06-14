@@ -145,7 +145,7 @@ class _RemoteManagerScreenState extends State<RemoteManagerScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(context.loc.gitRemoteRemoveTitle),
+        title: const Text('Remove Remote'),
         content: Text('Delete remote "${remote.name}"?'),
         actions: [
           TextButton(
