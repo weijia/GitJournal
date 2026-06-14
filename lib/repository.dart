@@ -705,6 +705,54 @@ class GitJournalRepo with ChangeNotifier {
     return config;
   }
 
+  /// 添加新的 remote
+  Future<void> addRemote({
+    required String name,
+    required String url,
+  }) async {
+    var repo = GitRepository.load(repoPath);
+    try {
+      repo.addRemote(name, url);
+      repo.saveConfig();
+    } finally {
+      repo.close();
+    }
+  }
+
+  /// 更新 remote URL
+  Future<void> updateRemoteUrl({
+    required String name,
+    required String url,
+  }) async {
+    var repo = GitRepository.load(repoPath);
+    try {
+      var remoteConfig = repo.config.remote(name);
+      if (remoteConfig != null) {
+        repo.config.remotes[repo.config.remotes.indexOf(remoteConfig)] = 
+            GitRemoteConfig(
+              name: name,
+              url: url,
+              fetch: remoteConfig.fetch,
+            );
+        repo.saveConfig();
+      }
+    } finally {
+      repo.close();
+    }
+  }
+
+  /// 获取 remote 名称列表
+  Future<List<String>> remoteNames() async {
+    var configs = await remoteConfigs();
+    return configs.map((c) => c.name).toList();
+  }
+
+  /// 检查 remote 是否存在
+  Future<bool> remoteExists(String name) async {
+    var configs = await remoteConfigs();
+    return configs.any((c) => c.name == name);
+  }
+
   Future<List<String>> branches() async {
     var repo = await GitAsyncRepository.load(repoPath);
     var branches = Set<String>.from(await repo.branches());
