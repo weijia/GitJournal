@@ -82,6 +82,9 @@ jobs:
           set -eux
           echo "=== Building go_git_dart Android binaries ==="
           cd go_git_dart_fork/src
+          
+          # Update go.sum for new dependencies
+          go mod tidy
 
           NDK_TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64"
           mkdir -p ../android/src/main/jniLibs/{arm64-v8a,armeabi-v7a,x86,x86_64}
