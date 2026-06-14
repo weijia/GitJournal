@@ -129,11 +129,26 @@ jobs:
           echo "${{ secrets.DEBUG_KEYSTORE_BASE64 }}" | base64 -d > android/app/debug-keystore.jks
           ls -la android/app/debug-keystore.jks
 
+      - name: Setup Release Keystore (if available)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android/app/release-key.jks
+            echo "KEYSTORE_PATH=release-key.jks" >> $GITHUB_ENV
+            ls -la android/app/release-key.jks
+          else
+            echo "No release keystore, using debug keystore for release builds"
+          fi
+
       - name: Build APK
         env:
           DEBUG_KEYSTORE_PASSWORD: ${{ secrets.DEBUG_KEYSTORE_PASSWORD }}
           DEBUG_KEY_ALIAS: ${{ secrets.DEBUG_KEY_ALIAS }}
           DEBUG_KEY_PASSWORD: ${{ secrets.DEBUG_KEY_PASSWORD }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -eux
           BUILD_NUM=$(git rev-list --count HEAD)
