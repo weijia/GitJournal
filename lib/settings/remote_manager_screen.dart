@@ -5,7 +5,7 @@
  */
 
 import 'package:flutter/material.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:gitjournal/generated/l10n.dart';
 import 'package:gitjournal/repository.dart';
 import 'package:gitjournal/settings/remote_config.dart';
 
@@ -145,7 +145,7 @@ class _RemoteManagerScreenState extends State<RemoteManagerScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.of(context).gitRemoteRemoveTitle),
+        title: Text(S.of(context).gitRemoteRemoveTitle),
         content: Text('Delete remote "${remote.name}"?'),
         actions: [
           TextButton(
@@ -192,7 +192,7 @@ class _RemoteManagerScreenState extends State<RemoteManagerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context);
+    final loc = S.of(context);
 
     return Scaffold(
       appBar: AppBar(
