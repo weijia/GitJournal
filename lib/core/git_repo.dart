@@ -150,14 +150,19 @@ class GitNoteRepository {
     return _addAllAndCommit(msg);
   }
 
-  Future<void> fetch() async {
-    var remoteName = 'origin';
+  Future<void> fetch({
+    String remoteName = 'origin',
+    String? sshPrivateKey,
+    String? sshPassword,
+  }) async {
+    final privateKey = sshPrivateKey ?? config.sshPrivateKey;
+    final password = sshPassword ?? config.sshPassword;
 
     if (Platform.isAndroid || Platform.isIOS) {
       try {
         var bindings = GitBindingsAsync();
         await bindings.fetch(remoteName, gitRepoPath,
-            utf8.encode(config.sshPrivateKey), config.sshPassword);
+            utf8.encode(privateKey), password);
       } catch (ex) {
         rethrow;
       }
@@ -205,7 +210,11 @@ class GitNoteRepository {
     return repo.mergeCurrentTrackingBranch(author: author);
   }
 
-  Future<void> push() async {
+  Future<void> push({
+    String remoteName = 'origin',
+    String? sshPrivateKey,
+    String? sshPassword,
+  }) async {
     // Only push if we have something we need to push
     try {
       var repo = await GitAsyncRepository.load(gitRepoPath);
@@ -216,12 +225,14 @@ class GitNoteRepository {
       Log.e("Can Push", ex: ex, stacktrace: st);
     }
 
-    var remoteName = 'origin';
+    final privateKey = sshPrivateKey ?? config.sshPrivateKey;
+    final password = sshPassword ?? config.sshPassword;
+
     if (Platform.isAndroid || Platform.isIOS) {
       try {
         var bindings = GitBindingsAsync();
         await bindings.push(remoteName, gitRepoPath,
-            utf8.encode(config.sshPrivateKey), config.sshPassword);
+            utf8.encode(privateKey), password);
       } catch (ex, stackTrace) {
         /*
         if (ex is gb.GitException) {
@@ -237,12 +248,56 @@ class GitNoteRepository {
       }
     } else if (Platform.isMacOS || Platform.isLinux) {
       return await gitPushViaExecutable(
-        privateKey: config.sshPrivateKey,
-        privateKeyPassword: config.sshPassword,
+        privateKey: privateKey,
+        privateKeyPassword: password,
         remoteName: remoteName,
         repoPath: gitRepoPath,
       );
     }
+  }
+
+  /// 推送到所有 remote
+  Future<Map<String, Exception?>> pushToAllRemotes(
+    List<dynamic> remoteConfigs,
+  ) async {
+    final results = <String, Exception?>{};
+    
+    for (final remoteConfig in remoteConfigs) {
+      try {
+        await push(
+          remoteName: remoteConfig.name,
+          sshPrivateKey: remoteConfig.sshPrivateKey,
+          sshPassword: remoteConfig.sshPassword,
+        );
+        results[remoteConfig.name] = null;
+      } catch (ex) {
+        results[remoteConfig.name] = ex as Exception;
+      }
+    }
+    
+    return results;
+  }
+
+  /// 从所有 remote fetch
+  Future<Map<String, Exception?>> fetchFromAllRemotes(
+    List<dynamic> remoteConfigs,
+  ) async {
+    final results = <String, Exception?>{};
+    
+    for (final remoteConfig in remoteConfigs) {
+      try {
+        await fetch(
+          remoteName: remoteConfig.name,
+          sshPrivateKey: remoteConfig.sshPrivateKey,
+          sshPassword: remoteConfig.sshPassword,
+        );
+        results[remoteConfig.name] = null;
+      } catch (ex) {
+        results[remoteConfig.name] = ex as Exception;
+      }
+    }
+    
+    return results;
   }
 
   Future<int?> numChanges() async {
