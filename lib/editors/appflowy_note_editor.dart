@@ -151,7 +151,16 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   }
 
   @override
-  Note getNote() => _note;
+  @override
+  Note getNote() {
+    // 从编辑器获取最新内容
+    final body = documentToMarkdown(_editorState.document);
+    return _note.copyWith(
+      body: body,
+      title: _titleController.text.trim(),
+      type: NoteType.Unknown,
+    );
+  }
 
   @override
   Future<void> addImage(String filePath) async {
