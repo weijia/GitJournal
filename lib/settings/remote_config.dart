@@ -156,9 +156,10 @@ class RemoteConfigList {
   /// 删除 remote
   RemoteConfigList remove(String name) {
     final newRemotes = List<RemoteConfig>.from(remotes);
-    final removed = newRemotes.removeWhere((r) => r.name == name);
+    final hadDefault = newRemotes.where((r) => r.name == name).any((r) => r.isDefault);
+    newRemotes.removeWhere((r) => r.name == name);
     // 如果删除的是默认，设置第一个为默认
-    if (removed && newRemotes.isNotEmpty && !newRemotes.any((r) => r.isDefault)) {
+    if (hadDefault && newRemotes.isNotEmpty && !newRemotes.any((r) => r.isDefault)) {
       newRemotes[0] = newRemotes[0].copyWith(isDefault: true);
     }
     return RemoteConfigList(remotes: newRemotes);
