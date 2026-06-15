@@ -1,1 +1,1 @@
-Build with Android logcat support v3
+Build with Android logcat support v4
