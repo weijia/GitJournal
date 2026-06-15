@@ -91,6 +91,7 @@ jobs:
 
           export GOOS=android
           export CGO_ENABLED=1
+          export CGO_LDFLAGS="-landroid"
           ANDROID_SDK_VERSION=21
 
           # Build for arm64-v8a
