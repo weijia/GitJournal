@@ -1,1 +1,1 @@
-Build with malformed mode (0100600) fix
+Build with Android logcat support
