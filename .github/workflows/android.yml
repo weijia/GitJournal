@@ -116,22 +116,23 @@ jobs:
 
           export GOOS=android
           export CGO_ENABLED=1
+          export CGO_LDFLAGS="-landroid"
           ANDROID_SDK_VERSION=21
 
           echo "Building for arm64-v8a..."
-          GOARCH=arm64 CC="$NDK_TOOLCHAIN/bin/aarch64-linux-android${ANDROID_SDK_VERSION}-clang" \
+          GOARCH=arm64 CGO_LDFLAGS="-landroid" CC="$NDK_TOOLCHAIN/bin/aarch64-linux-android${ANDROID_SDK_VERSION}-clang" \
             go build -buildmode=c-shared -trimpath -o ../android/src/main/jniLibs/arm64-v8a/go_git_dart.so .
 
           echo "Building for armeabi-v7a..."
-          GOARCH=arm CC="$NDK_TOOLCHAIN/bin/armv7a-linux-androideabi${ANDROID_SDK_VERSION}-clang" \
+          GOARCH=arm CGO_LDFLAGS="-landroid" CC="$NDK_TOOLCHAIN/bin/armv7a-linux-androideabi${ANDROID_SDK_VERSION}-clang" \
             go build -buildmode=c-shared -trimpath -o ../android/src/main/jniLibs/armeabi-v7a/go_git_dart.so .
 
           echo "Building for x86..."
-          GOARCH=386 CC="$NDK_TOOLCHAIN/bin/i686-linux-android${ANDROID_SDK_VERSION}-clang" \
+          GOARCH=386 CGO_LDFLAGS="-landroid" CC="$NDK_TOOLCHAIN/bin/i686-linux-android${ANDROID_SDK_VERSION}-clang" \
             go build -buildmode=c-shared -trimpath -o ../android/src/main/jniLibs/x86/go_git_dart.so .
 
           echo "Building for x86_64..."
-          GOARCH=amd64 CC="$NDK_TOOLCHAIN/bin/x86_64-linux-android${ANDROID_SDK_VERSION}-clang" \
+          GOARCH=amd64 CGO_LDFLAGS="-landroid" CC="$NDK_TOOLCHAIN/bin/x86_64-linux-android${ANDROID_SDK_VERSION}-clang" \
             go build -buildmode=c-shared -trimpath -o ../android/src/main/jniLibs/x86_64/go_git_dart.so .
 
           echo "=== Build complete ==="
