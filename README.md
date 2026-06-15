@@ -1,1 +1,1 @@
-Build with filemode fix for malformed mode 0100600
+Build with malformed mode (0100600) fix
