@@ -1,1 +1,1 @@
-Rebuild with CGO_LDFLAGS=-landroid for Android logcat
+Retry build with CGO_LDFLAGS=-landroid for Android logcat
