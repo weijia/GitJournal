@@ -1,1 +1,1 @@
-Build with Android logcat support v4
+Build with CGO_LDFLAGS=-landroid for Android logcat support
