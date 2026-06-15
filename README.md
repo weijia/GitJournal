@@ -1,1 +1,1 @@
-Build with Android logcat support
+Build with Android logcat support for debugging
