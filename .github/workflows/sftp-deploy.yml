@@ -122,10 +122,24 @@ jobs:
 
       - name: Replace go_git_dart binaries in Flutter cache
         run: |
-          PUB_CACHE="$HOME/.pub-cache/git/go_git_dart"
-          if [ -d "$PUB_CACHE/android/src/main/jniLibs" ]; then
-            rm -rf "$PUB_CACHE/android/src/main/jniLibs"
-            cp -r go_git_dart_fork/android/src/main/jniLibs "$PUB_CACHE/android/src/main/"
+          # Find the actual go_git_dart cache directory (path includes a hash suffix)
+          PUB_CACHE_DIR=$(find $HOME/.pub-cache/git -maxdepth 1 -type d -name "go_git_dart*" | head -1)
+          if [ -n "$PUB_CACHE_DIR" ] && [ -d "$PUB_CACHE_DIR/android/src/main/jniLibs" ]; then
+            echo "Found go_git_dart cache at: $PUB_CACHE_DIR"
+            rm -rf "$PUB_CACHE_DIR/android/src/main/jniLibs"
+            cp -r go_git_dart_fork/android/src/main/jniLibs "$PUB_CACHE_DIR/android/src/main/"
+            echo "Replaced .so files in $PUB_CACHE_DIR"
+          else
+            echo "WARNING: go_git_dart cache not found, trying fallback"
+            PUB_CACHE="$HOME/.pub-cache/git/go_git_dart"
+            if [ -d "$PUB_CACHE/android/src/main/jniLibs" ]; then
+              rm -rf "$PUB_CACHE/android/src/main/jniLibs"
+              cp -r go_git_dart_fork/android/src/main/jniLibs "$PUB_CACHE/android/src/main/"
+              echo "Replaced .so files in fallback path"
+            else
+              echo "ERROR: Could not find go_git_dart cache directory"
+              find $HOME/.pub-cache/git -maxdepth 1 -type d -name "go_git_dart*" || true
+            fi
           fi
 
       - name: Decode debug keystore
