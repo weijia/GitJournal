@@ -1,1 +1,1 @@
-Retry build with CGO_LDFLAGS=-landroid for Android logcat
+Build with copy button in editor app bar
