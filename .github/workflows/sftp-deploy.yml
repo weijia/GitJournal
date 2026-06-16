@@ -52,7 +52,7 @@ jobs:
         run: flutter doctor -v
 
       - name: Get Flutter Deps
-        run: flutter pub get --suppress-analytics
+        run: flutter pub upgrade --suppress-analytics
 
       # ============================================
       # Build custom go_git_dart with malformed mode fix
@@ -159,7 +159,7 @@ jobs:
           echo "Build Number: $BUILD_NUM"
 
           flutter clean
-          flutter pub get
+          flutter pub upgrade
 
           # Re-replace binaries after flutter clean
           PUB_CACHE_DIR=$(find .dart_tool -type d -name "go_git_dart" 2>/dev/null | head -1)
