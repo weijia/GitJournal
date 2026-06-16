@@ -1,1 +1,1 @@
-Build with stderr logging in gitjournal.go for debugging
+Build with updated go_git_dart dependency and flutter pub upgrade
