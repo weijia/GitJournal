@@ -148,41 +148,33 @@ jobs:
 
           replaced=0
 
-          # Method 1: Search pub cache
-          for dir in "$HOME/.pub-cache" "$PUB_CACHE" "$GITHUB_WORKSPACE/.dart_tool/pub-cache"; do
-            echo "Scanning: $dir"
-            while IFS= read -r target; do
-              if [ -d "$target/android/src/main/jniLibs" ]; then
-                echo "  Found jniLibs at: $target/android/src/main/jniLibs"
-                rm -rf "$target/android/src/main/jniLibs"
-                cp -r "$CUSTOM_LIBS" "$target/android/src/main/jniLibs"
-                echo "  ✓ Replaced!"
-                replaced=$((replaced + 1))
-              fi
-            done < <(find "$dir" -type d -name "go_git_dart" 2>/dev/null)
+          # Replace in pub cache (directory name includes hash suffix)
+          for dir in $(find $HOME/.pub-cache/git -maxdepth 1 -type d -name "go_git_dart*" 2>/dev/null); do
+            if [ -d "$dir/android/src/main/jniLibs" ]; then
+              echo "  Found jniLibs at: $dir/android/src/main/jniLibs"
+              rm -rf "$dir/android/src/main/jniLibs"
+              cp -r "$CUSTOM_LIBS" "$dir/android/src/main/jniLibs"
+              echo "  Replaced!"
+              replaced=$((replaced + 1))
+            fi
           done
 
-          # Method 2: Also search for any path containing go_git_dart with jniLibs
-          # Skip the source directory (go_git_dart_fork) to avoid self-replacement error
-          while IFS= read -r jniDir; do
-            # Skip if this is the source directory
-            if [[ "$jniDir" == *"go_git_dart_fork"* ]]; then
-              echo "  Skipping source directory: $jniDir"
-              continue
+          # Also check .dart_tool
+          for dir in $(find .dart_tool -type d -name "go_git_dart*" 2>/dev/null); do
+            if [ -d "$dir/android/src/main/jniLibs" ]; then
+              echo "  Found jniLibs at: $dir/android/src/main/jniLibs"
+              rm -rf "$dir/android/src/main/jniLibs"
+              cp -r "$CUSTOM_LIBS" "$dir/android/src/main/jniLibs"
+              echo "  Replaced!"
+              replaced=$((replaced + 1))
             fi
-            echo "  Found jniLibs at: $jniDir"
-            rm -rf "$jniDir"
-            parent=$(dirname "$jniDir")
-            cp -r "$CUSTOM_LIBS" "$parent/jniLibs"
-            echo "  ✓ Replaced!"
-            replaced=$((replaced + 1))
-          done < <(find / -type d -path "*/go_git_dart*/android/src/main/jniLibs" 2>/dev/null | grep -v "go_git_dart_fork")
+          done
 
           echo "=== Total replacements: $replaced ==="
           if [ "$replaced" -eq 0 ]; then
             echo "WARNING: No jniLibs directories found to replace!"
             echo "Listing all go_git_dart directories:"
-            find / -type d -name "go_git_dart" 2>/dev/null || true
+            find $HOME/.pub-cache/git -maxdepth 1 -type d -name "go_git_dart*" 2>/dev/null || true
           fi
 
       - name: Decode debug keystore
@@ -200,21 +192,29 @@ jobs:
           BUILD_NUM=$(git rev-list --count HEAD)
           echo "Build Number: $BUILD_NUM"
 
-          flutter clean
+          # Do NOT use flutter clean - it causes pub to re-download old go_git_dart
           flutter pub get --suppress-analytics
 
-          # Re-replace binaries after flutter clean + pub get
-          echo "=== Re-replacing go_git_dart binaries after flutter clean ==="
+          # Replace ALL go_git_dart .so files in pub cache (after pub get)
           CUSTOM_LIBS="$GITHUB_WORKSPACE/go_git_dart_fork/android/src/main/jniLibs"
           replaced=0
-          while IFS= read -r target; do
-            if [ -d "$target/android/src/main/jniLibs" ]; then
-              echo "  Replacing: $target/android/src/main/jniLibs"
-              rm -rf "$target/android/src/main/jniLibs"
-              cp -r "$CUSTOM_LIBS" "$target/android/src/main/jniLibs"
+          for dir in $(find $HOME/.pub-cache/git -maxdepth 1 -type d -name "go_git_dart*" 2>/dev/null); do
+            if [ -d "$dir/android/src/main/jniLibs" ]; then
+              echo "  Replacing: $dir/android/src/main/jniLibs"
+              rm -rf "$dir/android/src/main/jniLibs"
+              cp -r "$CUSTOM_LIBS" "$dir/android/src/main/jniLibs"
               replaced=$((replaced + 1))
             fi
-          done < <(find "$HOME/.pub-cache" "$GITHUB_WORKSPACE/.dart_tool" -type d -name "go_git_dart" 2>/dev/null)
+          done
+          # Also check .dart_tool
+          for dir in $(find .dart_tool -type d -name "go_git_dart*" 2>/dev/null); do
+            if [ -d "$dir/android/src/main/jniLibs" ]; then
+              echo "  Replacing in .dart_tool: $dir/android/src/main/jniLibs"
+              rm -rf "$dir/android/src/main/jniLibs"
+              cp -r "$CUSTOM_LIBS" "$dir/android/src/main/jniLibs"
+              replaced=$((replaced + 1))
+            fi
+          done
           echo "Re-replaced $replaced locations"
 
           flutter build apk --debug --flavor dev \

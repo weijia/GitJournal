@@ -174,7 +174,7 @@ jobs:
 
           # Do NOT use flutter clean - it causes pub to re-download old go_git_dart
           # Just do a fresh build
-          flutter pub upgrade --suppress-analytics
+          flutter pub get --suppress-analytics
 
           # Replace ALL go_git_dart .so files in pub cache
           for dir in $(find $HOME/.pub-cache/git -maxdepth 1 -type d -name "go_git_dart*"); do
