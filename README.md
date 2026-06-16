@@ -1,1 +1,1 @@
-Build with updated go_git_dart dependency and flutter pub upgrade
+Build with go_git_dart v0.0.2
