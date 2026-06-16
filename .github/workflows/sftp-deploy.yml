@@ -172,28 +172,27 @@ jobs:
           BUILD_NUM=$(git rev-list --count HEAD)
           echo "Build Number: $BUILD_NUM"
 
-          flutter clean
-          flutter pub upgrade
+          # Do NOT use flutter clean - it causes pub to re-download old go_git_dart
+          # Just do a fresh build
+          flutter pub upgrade --suppress-analytics
 
-          # Re-replace binaries after flutter clean + pub upgrade
-          # Try .dart_tool first, then fallback to pub cache
-          PUB_CACHE_DIR=$(find .dart_tool -type d -name "go_git_dart*" 2>/dev/null | head -1)
-          if [ -n "$PUB_CACHE_DIR" ] && [ -d "$PUB_CACHE_DIR/android/src/main/jniLibs" ]; then
-            echo "Re-replacing .so in .dart_tool: $PUB_CACHE_DIR"
-            rm -rf "$PUB_CACHE_DIR/android/src/main/jniLibs"
-            cp -r go_git_dart_fork/android/src/main/jniLibs "$PUB_CACHE_DIR/android/src/main/"
-          else
-            PUB_CACHE_DIR=$(find $HOME/.pub-cache/git -maxdepth 1 -type d -name "go_git_dart*" | head -1)
-            if [ -n "$PUB_CACHE_DIR" ] && [ -d "$PUB_CACHE_DIR/android/src/main/jniLibs" ]; then
-              echo "Re-replacing .so in pub cache: $PUB_CACHE_DIR"
-              rm -rf "$PUB_CACHE_DIR/android/src/main/jniLibs"
-              cp -r go_git_dart_fork/android/src/main/jniLibs "$PUB_CACHE_DIR/android/src/main/"
-            else
-              echo "ERROR: Could not find go_git_dart for re-replace"
-              find $HOME/.pub-cache/git -maxdepth 1 -type d -name "go_git_dart*" || true
-              find .dart_tool -type d -name "go_git_dart*" || true
+          # Replace ALL go_git_dart .so files in pub cache
+          for dir in $(find $HOME/.pub-cache/git -maxdepth 1 -type d -name "go_git_dart*"); do
+            if [ -d "$dir/android/src/main/jniLibs" ]; then
+              echo "Replacing .so in: $dir"
+              rm -rf "$dir/android/src/main/jniLibs"
+              cp -r go_git_dart_fork/android/src/main/jniLibs "$dir/android/src/main/"
             fi
-          fi
+          done
+
+          # Also replace in .dart_tool if it exists
+          for dir in $(find .dart_tool -type d -name "go_git_dart*" 2>/dev/null); do
+            if [ -d "$dir/android/src/main/jniLibs" ]; then
+              echo "Replacing .so in .dart_tool: $dir"
+              rm -rf "$dir/android/src/main/jniLibs"
+              cp -r go_git_dart_fork/android/src/main/jniLibs "$dir/android/src/main/"
+            fi
+          done
 
           flutter build apk --release --flavor dev \
             --build-number="$BUILD_NUM"
