@@ -1,1 +1,1 @@
-Build with fixed re-replace .so logic after flutter clean
+Build with fixed re-replace .so in pub cache after flutter clean
