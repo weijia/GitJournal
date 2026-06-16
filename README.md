@@ -1,1 +1,1 @@
-Build with fixed go_git_dart .so replacement path
+Build with fixed re-replace .so logic after flutter clean
