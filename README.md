@@ -1,1 +1,1 @@
-Build with copy button in editor app bar
+Build with empty repository support in Clone function
