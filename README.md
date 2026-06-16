@@ -1,1 +1,1 @@
-Build with stderr logging for debugging
+Build with stderr logging in gitjournal.go for debugging
