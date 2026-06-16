@@ -1,1 +1,1 @@
-Build with go_git_dart v0.0.2
+Build with fixed go_git_dart pluginClass
