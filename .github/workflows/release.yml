@@ -180,24 +180,30 @@ jobs:
           echo "Version: $VERSION"
           echo "Build Number: $BUILD_NUM"
 
-          flutter clean
+          # Do NOT use flutter clean - it causes pub to re-download old go_git_dart
           flutter pub get --suppress-analytics
 
-          # Re-replace binaries after flutter clean + pub get
-          echo "=== Re-replacing go_git_dart binaries after flutter clean ==="
+          # Replace ALL go_git_dart .so files in pub cache
           CUSTOM_LIBS="$GITHUB_WORKSPACE/go_git_dart_fork/android/src/main/jniLibs"
-          replaced=0
-          while IFS= read -r target; do
-            if [ -d "$target/android/src/main/jniLibs" ]; then
-              echo "  Replacing: $target/android/src/main/jniLibs"
-              rm -rf "$target/android/src/main/jniLibs"
-              cp -r "$CUSTOM_LIBS" "$target/android/src/main/jniLibs"
-              replaced=$((replaced + 1))
+          echo "=== Replacing go_git_dart binaries ==="
+          for dir in $(find $HOME/.pub-cache/git -maxdepth 1 -type d -name "go_git_dart*" 2>/dev/null); do
+            if [ -d "$dir/android/src/main/jniLibs" ]; then
+              echo "Replacing .so in: $dir"
+              rm -rf "$dir/android/src/main/jniLibs"
+              cp -r "$CUSTOM_LIBS" "$dir/android/src/main/jniLibs"
             fi
-          done < <(find "$HOME/.pub-cache" "$GITHUB_WORKSPACE/.dart_tool" -type d -name "go_git_dart" 2>/dev/null)
-          echo "Re-replaced $replaced locations"
+          done
 
-          # Build release APK - uses debug signing config (same as regular Android workflow)
+          # Also replace in .dart_tool if it exists
+          for dir in $(find .dart_tool -type d -name "go_git_dart*" 2>/dev/null); do
+            if [ -d "$dir/android/src/main/jniLibs" ]; then
+              echo "Replacing .so in .dart_tool: $dir"
+              rm -rf "$dir/android/src/main/jniLibs"
+              cp -r "$CUSTOM_LIBS" "$dir/android/src/main/jniLibs"
+            fi
+          done
+
+          # Build release APK
           flutter build apk --release --flavor prod \
             --build-name="$VERSION" \
             --build-number="$BUILD_NUM"
