@@ -731,7 +731,7 @@ packages:
     description:
       path: "."
       ref: HEAD
-      resolved-ref: 7d17f904eadfe864fe5d3f29b4e2b71245ad9430
+      resolved-ref: 4d77e4b1964b0302bf35ef208d225e8cec50ccaf
       url: "https://github.com/weijia/go_git_dart.git"
     source: git
     version: "0.0.1"
