@@ -731,8 +731,8 @@ packages:
     description:
       path: "."
       ref: HEAD
-      resolved-ref: d01aca4504133ccf927799fbd0b2e0ef31eb7171
-      url: "https://github.com/GitJournal/go_git_dart.git"
+      resolved-ref: f26112c9e5c5c5c5c5c5c5c5c5c5c5c5c5c5c5c
+      url: "https://github.com/weijia/go_git_dart.git"
     source: git
     version: "0.0.1"
   go_router:
