@@ -303,6 +303,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsDebugCopy => 'Debug Logs Copied';
 
   @override
+  String get settingsDebugClearTitle => 'Clear Logs';
+
+  @override
+  String get settingsDebugClearMessage => 'Are you sure you want to clear all logs?';
+
+  @override
+  String get settingsDebugClearDone => 'Logs Cleared';
+
+  @override
   String get settingsImagesTitle => 'Image Settings';
 
   @override
@@ -1394,6 +1403,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get exportRepo => 'Export Repository';
+
+  @override
+  String get settingsStorageCopyRepo => 'Copy Repo to Directory';
+
+  @override
+  String get settingsStorageCopyRepoSubtitle =>
+      'Copy entire repo including .git to a selected directory';
+
+  @override
+  String get settingsStorageCopyRepoDone => 'Repo Copied';
 
   @override
   String get shareAsZip => 'Share as a ZIP file';

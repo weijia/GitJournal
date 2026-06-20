@@ -916,6 +916,20 @@ class GitJournalRepo with ChangeNotifier {
     await Share.shareXFiles([XFile(exportPath, name: "$repoName.zip")]);
     await dir.delete(recursive: true);
   }
+
+  /// Copy the entire git repo (including .git) to a destination directory.
+  /// The repo will be copied into [destDir]/[folderName]/.
+  Future<void> copyRepoTo(String destDir) async {
+    var repoName = p.basename(repoPath);
+    var destPath = p.join(destDir, repoName);
+
+    if (destPath == repoPath) {
+      throw ArgumentError('Destination is the same as source');
+    }
+
+    await io.Directory(destPath).create(recursive: true);
+    await _copyDirectory(repoPath, destPath);
+  }
 }
 
 Future<void> _copyDirectory(String source, String destination) async {

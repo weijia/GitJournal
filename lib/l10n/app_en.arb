@@ -85,6 +85,9 @@
   "settingsDebugLevelsDebug": "Debug",
   "settingsDebugLevelsVerbose": "Verbose",
   "settingsDebugCopy": "Debug Logs Copied",
+  "settingsDebugClearTitle": "Clear Logs",
+  "settingsDebugClearMessage": "Are you sure you want to clear all logs?",
+  "settingsDebugClearDone": "Logs Cleared",
   "settingsImagesTitle": "Image Settings",
   "settingsImagesSubtitle": "Configure how Images are stored",
   "settingsImagesImageLocation": "Image Location",
@@ -510,6 +513,9 @@
   "onBoardingPage3": "Sync your Local Git Repo with any provider",
   "singleJournalEntry": "Single Journal Entry File per day",
   "exportRepo": "Export Repository",
+  "settingsStorageCopyRepo": "Copy Repo to Directory",
+  "settingsStorageCopyRepoSubtitle": "Copy entire repo including .git to a selected directory",
+  "settingsStorageCopyRepoDone": "Repo Copied",
   "shareAsZip": "Share as a ZIP file",
   "failedToExport": "Failed to Export"
 }

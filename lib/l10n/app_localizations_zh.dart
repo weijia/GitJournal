@@ -303,6 +303,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsDebugCopy => 'Debug Logs Copied';
 
   @override
+  String get settingsDebugClearTitle => '清空日志';
+
+  @override
+  String get settingsDebugClearMessage => '确定要清空所有日志吗？';
+
+  @override
+  String get settingsDebugClearDone => '日志已清空';
+
+  @override
   String get settingsImagesTitle => 'Image Settings';
 
   @override
@@ -1394,6 +1403,15 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get exportRepo => 'Export Repository';
+
+  @override
+  String get settingsStorageCopyRepo => '复制仓库到目录';
+
+  @override
+  String get settingsStorageCopyRepoSubtitle => '将整个仓库（包括 .git）复制到选定目录';
+
+  @override
+  String get settingsStorageCopyRepoDone => '仓库已复制';
 
   @override
   String get shareAsZip => 'Share as a ZIP file';

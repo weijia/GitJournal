@@ -645,6 +645,24 @@ abstract class AppLocalizations {
   /// **'Debug Logs Copied'**
   String get settingsDebugCopy;
 
+  /// No description provided for @settingsDebugClearTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear Logs'**
+  String get settingsDebugClearTitle;
+
+  /// No description provided for @settingsDebugClearMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to clear all logs?'**
+  String get settingsDebugClearMessage;
+
+  /// No description provided for @settingsDebugClearDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Logs Cleared'**
+  String get settingsDebugClearDone;
+
   /// No description provided for @settingsImagesTitle.
   ///
   /// In en, this message translates to:
@@ -2636,6 +2654,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Export Repository'**
   String get exportRepo;
+
+  /// No description provided for @settingsStorageCopyRepo.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy Repo to Directory'**
+  String get settingsStorageCopyRepo;
+
+  /// No description provided for @settingsStorageCopyRepoSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy entire repo including .git to a selected directory'**
+  String get settingsStorageCopyRepoSubtitle;
+
+  /// No description provided for @settingsStorageCopyRepoDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Repo Copied'**
+  String get settingsStorageCopyRepoDone;
 
   /// No description provided for @shareAsZip.
   ///
