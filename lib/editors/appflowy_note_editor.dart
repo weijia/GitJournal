@@ -559,13 +559,13 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       return;
     }
     final transaction = _editorState.transaction;
-    final newRow = tableNode.children[cellPos.value].copyWith();
+    final newRow = tableNode.children[cellPos.key].copyWith();
     transaction.insertNode(
-      tableNode.children[cellPos.value].path.next,
+      tableNode.children[cellPos.key].path.next,
       newRow,
     );
     _editorState.apply(transaction);
-    debugPrint('Added row at index ${cellPos.value}');
+    debugPrint('Added row at index ${cellPos.key}');
   }
 
   void _tableAddColumn() {
@@ -599,9 +599,9 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       return;
     }
     final transaction = _editorState.transaction;
-    transaction.deleteNode(tableNode.children[cellPos.value]);
+    transaction.deleteNode(tableNode.children[cellPos.key]);
     _editorState.apply(transaction);
-    debugPrint('Deleted row at index ${cellPos.value}');
+    debugPrint('Deleted row at index ${cellPos.key}');
   }
 
   void _tableDeleteColumn() {
@@ -630,12 +630,12 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
       debugPrint('No table or cell position found');
       return;
     }
-    final rowToCopy = tableNode.children[cellPos.value];
+    final rowToCopy = tableNode.children[cellPos.key];
     final transaction = _editorState.transaction;
     final newRow = rowToCopy.copyWith();
     transaction.insertNode(rowToCopy.path.next, newRow);
     _editorState.apply(transaction);
-    debugPrint('Duplicated row at index ${cellPos.value}');
+    debugPrint('Duplicated row at index ${cellPos.key}');
   }
 }
 
