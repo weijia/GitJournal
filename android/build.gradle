@@ -15,6 +15,16 @@ subprojects {
 }
 subprojects {
     project.evaluationDependsOn(':app')
+
+    // Fix for receive_sharing_intent using kotlin DSL without applying kotlin plugin
+    // https://github.com/KasemJaffer/receive_sharing_intent/issues/XXX
+    beforeEvaluate {
+        if (project.name == "receive_sharing_intent") {
+            if (!project.plugins.hasPlugin("org.jetbrains.kotlin.android")) {
+                project.apply plugin: "org.jetbrains.kotlin.android"
+            }
+        }
+    }
 }
 
 tasks.register("clean", Delete) {
