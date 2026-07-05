@@ -7,6 +7,13 @@ allprojects {
         google()
         mavenCentral()
     }
+    afterEvaluate { project ->
+        if (project.name == "receive_sharing_intent" && project.hasProperty("android")) {
+            project.android {
+                compileSdk 35
+            }
+        }
+    }
 }
 
 rootProject.buildDir = '../build'
@@ -15,16 +22,6 @@ subprojects {
 }
 subprojects {
     project.evaluationDependsOn(':app')
-
-    // Fix for receive_sharing_intent using kotlin DSL without applying kotlin plugin
-    // and requiring compileSdk 37 which may not be installed
-    afterEvaluate {
-        if (project.name == "receive_sharing_intent" && project.hasProperty("android")) {
-            project.android {
-                compileSdk 35
-            }
-        }
-    }
 }
 
 tasks.register("clean", Delete) {
