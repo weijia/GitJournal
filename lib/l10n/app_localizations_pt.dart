@@ -1400,6 +1400,24 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get failedToExport => 'Failed to Export';
+
+  @override
+  String get settingsDebugClearTitle => 'Clear Logs';
+
+  @override
+  String get settingsDebugClearMessage => 'Are you sure you want to clear all logs?';
+
+  @override
+  String get settingsDebugClearDone => 'Logs Cleared';
+
+  @override
+  String get settingsStorageCopyRepo => 'Copy Repo to Directory';
+
+  @override
+  String get settingsStorageCopyRepoSubtitle => 'Copy the entire git repository to a directory';
+
+  @override
+  String get settingsStorageCopyRepoDone => 'Repo Copied';
 }
 
 /// The translations for Portuguese, as used in Brazil (`pt_BR`).
@@ -2775,4 +2793,22 @@ class AppLocalizationsPtBr extends AppLocalizationsPt {
 
   @override
   String get singleJournalEntry => 'Single Journal Entry File per day';
+
+  @override
+  String get settingsDebugClearTitle => 'Clear Logs';
+
+  @override
+  String get settingsDebugClearMessage => 'Are you sure you want to clear all logs?';
+
+  @override
+  String get settingsDebugClearDone => 'Logs Cleared';
+
+  @override
+  String get settingsStorageCopyRepo => 'Copy Repo to Directory';
+
+  @override
+  String get settingsStorageCopyRepoSubtitle => 'Copy the entire git repository to a directory';
+
+  @override
+  String get settingsStorageCopyRepoDone => 'Repo Copied';
 }
