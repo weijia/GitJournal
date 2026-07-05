@@ -7,6 +7,13 @@ allprojects {
         google()
         mavenCentral()
     }
+    afterEvaluate { project ->
+        if (project.name == "receive_sharing_intent" && project.hasProperty("android")) {
+            project.android {
+                compileSdk 35
+            }
+        }
+    }
 }
 
 rootProject.buildDir = '../build'
@@ -21,19 +28,6 @@ subprojects {
     beforeEvaluate {
         if (project.name == "receive_sharing_intent") {
             project.apply plugin: "org.jetbrains.kotlin.android"
-        }
-    }
-}
-
-// Fix for receive_sharing_intent: it uses kotlin{} DSL and compileSdk 37
-// but doesn't declare the kotlin-android plugin and CI may lack SDK 37.
-// Apply both fixes in projectsEvaluated (after all projects are evaluated).
-gradle.projectsEvaluated {
-    subprojects { subproject ->
-        if (subproject.name == "receive_sharing_intent" && subproject.hasProperty("android")) {
-            subproject.android {
-                compileSdk 35
-            }
         }
     }
 }
