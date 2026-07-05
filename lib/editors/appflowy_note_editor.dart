@@ -551,22 +551,9 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     debugPrint('Inserted table ${rows}x$cols');
   }
 
-  /// Find cell node by (col, row) in a table.
-  /// Note: AppFlowy stores cells flat in tableNode.children as
-  /// [row0col0, row0col1, row1col0, row1col1, ...]
+  /// Find cell by (col, row) using linear search on attributes.
+  /// Safe during position shifts where physical indices may not match.
   Node? _getCellNode(Node tableNode, int col, int row) {
-    final colsLen = tableNode.attributes[TableBlockKeys.colsLen] as int? ?? 0;
-    final expectedIndex = row * colsLen + col;
-    if (expectedIndex < 0 || expectedIndex >= tableNode.children.length) {
-      return null;
-    }
-    final child = tableNode.children[expectedIndex];
-    final childCol = child.attributes[TableCellBlockKeys.colPosition] as int? ?? 0;
-    final childRow = child.attributes[TableCellBlockKeys.rowPosition] as int? ?? 0;
-    if (childCol == col && childRow == row) {
-      return child;
-    }
-    // Fallback: linear search
     for (final c in tableNode.children) {
       final cCol = c.attributes[TableCellBlockKeys.colPosition] as int? ?? 0;
       final cRow = c.attributes[TableCellBlockKeys.rowPosition] as int? ?? 0;
@@ -578,10 +565,8 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   void _tableAddRow() {
     final tableNode = _findTableNode();
     final cellPos = _getTableCellPosition();
-    if (tableNode == null || cellPos == null) {
-      debugPrint('No table or cell position found');
-      return;
-    }
+    if (tableNode == null || cellPos == null) return;
+
     final colsLen = tableNode.attributes[TableBlockKeys.colsLen] as int? ?? 0;
     final rowsLen = tableNode.attributes[TableBlockKeys.rowsLen] as int? ?? 0;
     final afterRow = cellPos.key;
@@ -589,30 +574,20 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
 
     final transaction = _editorState.transaction;
 
+    // Shift: update rowPosition for existing cells with rowPosition > afterRow
+    for (final c in tableNode.children) {
+      final r = c.attributes[TableCellBlockKeys.rowPosition] as int? ?? 0;
+      if (r > afterRow) {
+        transaction.updateNode(c, {TableCellBlockKeys.rowPosition: r + 1});
+      }
+    }
+
     // Update table rows count
-    transaction.updateNode(tableNode, {
-      TableBlockKeys.rowsLen: rowsLen + 1,
-    });
+    transaction.updateNode(tableNode, {TableBlockKeys.rowsLen: rowsLen + 1});
 
     // Insert new cells for the new row
     for (var col = 0; col < colsLen; col++) {
-      final cellIndex = newRowIndex * colsLen + col;
-      transaction.insertNode(
-        [...tableNode.path, cellIndex],
-        tableCellNode('', newRowIndex, col),
-      );
-    }
-
-    // Update rowPosition for cells after the inserted row
-    for (var row = newRowIndex + 1; row <= rowsLen; row++) {
-      for (var col = 0; col < colsLen; col++) {
-        final cell = _getCellNode(tableNode, col, row);
-        if (cell != null) {
-          transaction.updateNode(cell, {
-            TableCellBlockKeys.rowPosition: row,
-          });
-        }
-      }
+      transaction.insertNode(tableNode.path, tableCellNode('', newRowIndex, col));
     }
 
     _editorState.apply(transaction);
@@ -621,15 +596,9 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
 
   void _tableAddColumn() {
     final tableNode = _findTableNode();
-    if (tableNode == null) {
-      debugPrint('No table found');
-      return;
-    }
     final cellPos = _getTableCellPosition();
-    if (cellPos == null) {
-      debugPrint('No cell position found');
-      return;
-    }
+    if (tableNode == null || cellPos == null) return;
+
     final colsLen = tableNode.attributes[TableBlockKeys.colsLen] as int? ?? 0;
     final rowsLen = tableNode.attributes[TableBlockKeys.rowsLen] as int? ?? 0;
     final afterCol = cellPos.value;
@@ -637,30 +606,20 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
 
     final transaction = _editorState.transaction;
 
-    // Update table cols count
-    transaction.updateNode(tableNode, {
-      TableBlockKeys.colsLen: colsLen + 1,
-    });
-
-    // Insert new cells for the new column (from bottom to top to keep indices stable)
-    for (var row = rowsLen - 1; row >= 0; row--) {
-      final cellIndex = row * (colsLen + 1) + newColIndex;
-      transaction.insertNode(
-        [...tableNode.path, cellIndex],
-        tableCellNode('', row, newColIndex),
-      );
+    // Shift: update colPosition for existing cells with colPosition > afterCol
+    for (final c in tableNode.children) {
+      final col = c.attributes[TableCellBlockKeys.colPosition] as int? ?? 0;
+      if (col > afterCol) {
+        transaction.updateNode(c, {TableCellBlockKeys.colPosition: col + 1});
+      }
     }
 
-    // Update colPosition for cells after the inserted column
+    // Update table cols count
+    transaction.updateNode(tableNode, {TableBlockKeys.colsLen: colsLen + 1});
+
+    // Insert new cells for the new column
     for (var row = 0; row < rowsLen; row++) {
-      for (var col = newColIndex + 1; col <= colsLen; col++) {
-        final cell = _getCellNode(tableNode, col, row);
-        if (cell != null) {
-          transaction.updateNode(cell, {
-            TableCellBlockKeys.colPosition: col,
-          });
-        }
-      }
+      transaction.insertNode(tableNode.path, tableCellNode('', row, newColIndex));
     }
 
     _editorState.apply(transaction);
@@ -670,44 +629,33 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   void _tableDeleteRow() {
     final tableNode = _findTableNode();
     final cellPos = _getTableCellPosition();
-    if (tableNode == null || cellPos == null) {
-      debugPrint('No table or cell position found');
-      return;
-    }
+    if (tableNode == null || cellPos == null) return;
+
     final colsLen = tableNode.attributes[TableBlockKeys.colsLen] as int? ?? 0;
     final rowsLen = tableNode.attributes[TableBlockKeys.rowsLen] as int? ?? 0;
-    if (rowsLen <= 1) {
-      debugPrint('Cannot delete the last row');
-      return;
-    }
+    if (rowsLen <= 1) return;
     final rowToDelete = cellPos.key;
 
     final transaction = _editorState.transaction;
 
-    // Delete all cells in the row
-    for (var col = 0; col < colsLen; col++) {
-      final cell = _getCellNode(tableNode, col, rowToDelete);
-      if (cell != null) {
-        transaction.deleteNode(cell);
+    // Delete cells in the row
+    for (final c in tableNode.children.toList()) {
+      final r = c.attributes[TableCellBlockKeys.rowPosition] as int? ?? 0;
+      if (r == rowToDelete) {
+        transaction.deleteNode(c);
+      }
+    }
+
+    // Shift: cells with rowPosition > rowToDelete get -1
+    for (final c in tableNode.children.toList()) {
+      final r = c.attributes[TableCellBlockKeys.rowPosition] as int? ?? 0;
+      if (r > rowToDelete) {
+        transaction.updateNode(c, {TableCellBlockKeys.rowPosition: r - 1});
       }
     }
 
     // Update table rows count
-    transaction.updateNode(tableNode, {
-      TableBlockKeys.rowsLen: rowsLen - 1,
-    });
-
-    // Update rowPosition for cells after the deleted row
-    for (var row = rowToDelete + 1; row < rowsLen; row++) {
-      for (var col = 0; col < colsLen; col++) {
-        final cell = _getCellNode(tableNode, col, row);
-        if (cell != null) {
-          transaction.updateNode(cell, {
-            TableCellBlockKeys.rowPosition: row - 1,
-          });
-        }
-      }
-    }
+    transaction.updateNode(tableNode, {TableBlockKeys.rowsLen: rowsLen - 1});
 
     _editorState.apply(transaction);
     debugPrint('Deleted row at index $rowToDelete');
@@ -715,49 +663,34 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
 
   void _tableDeleteColumn() {
     final tableNode = _findTableNode();
-    if (tableNode == null) {
-      debugPrint('No table found');
-      return;
-    }
     final cellPos = _getTableCellPosition();
-    if (cellPos == null) {
-      debugPrint('No cell position found');
-      return;
-    }
+    if (tableNode == null || cellPos == null) return;
+
     final colsLen = tableNode.attributes[TableBlockKeys.colsLen] as int? ?? 0;
     final rowsLen = tableNode.attributes[TableBlockKeys.rowsLen] as int? ?? 0;
-    if (colsLen <= 1) {
-      debugPrint('Cannot delete the last column');
-      return;
-    }
+    if (colsLen <= 1) return;
     final colToDelete = cellPos.value;
 
     final transaction = _editorState.transaction;
 
-    // Delete all cells in the column
-    for (var row = 0; row < rowsLen; row++) {
-      final cell = _getCellNode(tableNode, colToDelete, row);
-      if (cell != null) {
-        transaction.deleteNode(cell);
+    // Delete cells in the column
+    for (final c in tableNode.children.toList()) {
+      final col = c.attributes[TableCellBlockKeys.colPosition] as int? ?? 0;
+      if (col == colToDelete) {
+        transaction.deleteNode(c);
+      }
+    }
+
+    // Shift: cells with colPosition > colToDelete get -1
+    for (final c in tableNode.children.toList()) {
+      final col = c.attributes[TableCellBlockKeys.colPosition] as int? ?? 0;
+      if (col > colToDelete) {
+        transaction.updateNode(c, {TableCellBlockKeys.colPosition: col - 1});
       }
     }
 
     // Update table cols count
-    transaction.updateNode(tableNode, {
-      TableBlockKeys.colsLen: colsLen - 1,
-    });
-
-    // Update colPosition for cells after the deleted column
-    for (var row = 0; row < rowsLen; row++) {
-      for (var col = colToDelete + 1; col < colsLen; col++) {
-        final cell = _getCellNode(tableNode, col, row);
-        if (cell != null) {
-          transaction.updateNode(cell, {
-            TableCellBlockKeys.colPosition: col - 1,
-          });
-        }
-      }
-    }
+    transaction.updateNode(tableNode, {TableBlockKeys.colsLen: colsLen - 1});
 
     _editorState.apply(transaction);
     debugPrint('Deleted column at index $colToDelete');
@@ -766,10 +699,8 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
   void _tableDuplicateRow() {
     final tableNode = _findTableNode();
     final cellPos = _getTableCellPosition();
-    if (tableNode == null || cellPos == null) {
-      debugPrint('No table or cell position found');
-      return;
-    }
+    if (tableNode == null || cellPos == null) return;
+
     final colsLen = tableNode.attributes[TableBlockKeys.colsLen] as int? ?? 0;
     final rowsLen = tableNode.attributes[TableBlockKeys.rowsLen] as int? ?? 0;
     final rowToCopy = cellPos.key;
@@ -777,17 +708,21 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
 
     final transaction = _editorState.transaction;
 
+    // Shift: update rowPosition for existing cells with rowPosition > rowToCopy
+    for (final c in tableNode.children) {
+      final r = c.attributes[TableCellBlockKeys.rowPosition] as int? ?? 0;
+      if (r > rowToCopy) {
+        transaction.updateNode(c, {TableCellBlockKeys.rowPosition: r + 1});
+      }
+    }
+
     // Update table rows count
-    transaction.updateNode(tableNode, {
-      TableBlockKeys.rowsLen: rowsLen + 1,
-    });
+    transaction.updateNode(tableNode, {TableBlockKeys.rowsLen: rowsLen + 1});
 
     // Copy each cell in the row
     for (var col = 0; col < colsLen; col++) {
       final sourceCell = _getCellNode(tableNode, col, rowToCopy);
-      final cellIndex = newRowIndex * colsLen + col;
       if (sourceCell != null) {
-        // Deep copy the cell with its children
         final newCell = sourceCell.copyWith(
           attributes: {
             ...sourceCell.attributes,
@@ -795,27 +730,9 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
             TableCellBlockKeys.colPosition: col,
           },
         );
-        transaction.insertNode(
-          [...tableNode.path, cellIndex],
-          newCell,
-        );
+        transaction.insertNode(tableNode.path, newCell);
       } else {
-        transaction.insertNode(
-          [...tableNode.path, cellIndex],
-          tableCellNode('', newRowIndex, col),
-        );
-      }
-    }
-
-    // Update rowPosition for cells after the inserted row
-    for (var row = newRowIndex + 1; row <= rowsLen; row++) {
-      for (var col = 0; col < colsLen; col++) {
-        final cell = _getCellNode(tableNode, col, row);
-        if (cell != null) {
-          transaction.updateNode(cell, {
-            TableCellBlockKeys.rowPosition: row,
-          });
-        }
+        transaction.insertNode(tableNode.path, tableCellNode('', newRowIndex, col));
       }
     }
 
@@ -823,6 +740,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     debugPrint('Duplicated row at index $newRowIndex');
   }
 }
+
 
 // --- Insert Table Dialog ---
 class _InsertTableDialog extends StatefulWidget {
