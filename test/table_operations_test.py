@@ -3,16 +3,18 @@
 Table operations test - verifies flat cell structure correctness.
 Validates the same logic used in appflowy_note_editor.dart table operations.
 
-Strategy: After each operation, rebuild the children list in correct physical order
-(row-major) by sorting on (rowPosition, colPosition). This guarantees correct structure.
+Strategy: Uses physical index insertion (like AppFlowy's insertNode(path, node))
+with explicit cellIndex calculation. After all operations, validates that
+physical index matches (rowPosition, colPosition) via row-major ordering.
 
 Run: python3 test/table_operations_test.py
 """
 
 class MockCell:
-    def __init__(self, row_pos, col_pos):
+    def __init__(self, row_pos, col_pos, content=''):
         self.row_position = row_pos
         self.col_position = col_pos
+        self.content = content
     def __repr__(self):
         return f'({self.r},{self.c})'
     @property
@@ -24,12 +26,10 @@ class MockTableNode:
     def __init__(self, cols_len, rows_len):
         self.cols_len = cols_len
         self.rows_len = rows_len
-        # Build initial children in row-major order
-        self.children = [MockCell(r, c) for r in range(rows_len) for c in range(cols_len)]
-
-    def _rebuild(self):
-        self.children = sorted(self.children,
-            key=lambda c: (c.row_position * 10000 + c.col_position))
+        self.children = []
+        for r in range(rows_len):
+            for c in range(cols_len):
+                self.children.append(MockCell(r, c))
 
     def get_cell_node(self, col, row):
         for c in self.children:
@@ -45,11 +45,11 @@ class MockTableNode:
         for c in self.children:
             if c.row_position > after_row:
                 c.row_position += 1
-        # Create new cells
+        # Insert new cells at correct physical indices
         for col in range(self.cols_len):
-            self.children.append(MockCell(new_row_index, col))
+            cell_index = new_row_index * self.cols_len + col
+            self.children.insert(cell_index, MockCell(new_row_index, col))
         self.rows_len += 1
-        self._rebuild()
         return True
 
     def delete_row(self, row_index):
@@ -57,14 +57,13 @@ class MockTableNode:
             return False
         if row_index < 0 or row_index >= self.rows_len:
             return False
-        # Remove cells in the row
+        # Delete cells in the row
         self.children = [c for c in self.children if c.row_position != row_index]
         # Shift cells with row_position > row_index
         for c in self.children:
             if c.row_position > row_index:
                 c.row_position -= 1
         self.rows_len -= 1
-        self._rebuild()
         return True
 
     def add_column(self, after_col):
@@ -75,11 +74,11 @@ class MockTableNode:
         for c in self.children:
             if c.col_position > after_col:
                 c.col_position += 1
-        # Create new cells
-        for row in range(self.rows_len):
-            self.children.append(MockCell(row, new_col_index))
+        # Insert new cells at correct physical indices (bottom to top)
+        for row in range(self.rows_len - 1, -1, -1):
+            cell_index = row * self.cols_len + new_col_index
+            self.children.insert(cell_index, MockCell(row, new_col_index))
         self.cols_len += 1
-        self._rebuild()
         return True
 
     def delete_column(self, col_index):
@@ -87,14 +86,13 @@ class MockTableNode:
             return False
         if col_index < 0 or col_index >= self.cols_len:
             return False
-        # Remove cells in the column
+        # Delete cells in the column
         self.children = [c for c in self.children if c.col_position != col_index]
         # Shift cells with col_position > col_index
         for c in self.children:
             if c.col_position > col_index:
                 c.col_position -= 1
         self.cols_len -= 1
-        self._rebuild()
         return True
 
     def duplicate_row(self, row_index):
@@ -105,11 +103,15 @@ class MockTableNode:
         for c in self.children:
             if c.row_position > row_index:
                 c.row_position += 1
-        # Create new cells (copy of source row)
+        # Copy each cell in the row
         for col in range(self.cols_len):
-            self.children.append(MockCell(new_row_index, col))
+            cell_index = new_row_index * self.cols_len + col
+            source = self.get_cell_node(col, row_index)
+            if source:
+                self.children.insert(cell_index, MockCell(new_row_index, col, source.content))
+            else:
+                self.children.insert(cell_index, MockCell(new_row_index, col))
         self.rows_len += 1
-        self._rebuild()
         return True
 
     def validate(self):

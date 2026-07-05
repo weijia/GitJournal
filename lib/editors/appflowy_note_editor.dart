@@ -587,7 +587,11 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
 
     // Insert new cells for the new row
     for (var col = 0; col < colsLen; col++) {
-      transaction.insertNode(tableNode.path, tableCellNode('', newRowIndex, col));
+      final cellIndex = newRowIndex * colsLen + col;
+      transaction.insertNode(
+        [...tableNode.path, cellIndex],
+        tableCellNode('', newRowIndex, col),
+      );
     }
 
     _editorState.apply(transaction);
@@ -619,7 +623,11 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
 
     // Insert new cells for the new column
     for (var row = 0; row < rowsLen; row++) {
-      transaction.insertNode(tableNode.path, tableCellNode('', row, newColIndex));
+      final cellIndex = row * colsLen + newColIndex;
+      transaction.insertNode(
+        [...tableNode.path, cellIndex],
+        tableCellNode('', row, newColIndex),
+      );
     }
 
     _editorState.apply(transaction);
@@ -721,6 +729,7 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
 
     // Copy each cell in the row
     for (var col = 0; col < colsLen; col++) {
+      final cellIndex = newRowIndex * colsLen + col;
       final sourceCell = _getCellNode(tableNode, col, rowToCopy);
       if (sourceCell != null) {
         final newCell = sourceCell.copyWith(
@@ -730,9 +739,12 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
             TableCellBlockKeys.colPosition: col,
           },
         );
-        transaction.insertNode(tableNode.path, newCell);
+        transaction.insertNode([...tableNode.path, cellIndex], newCell);
       } else {
-        transaction.insertNode(tableNode.path, tableCellNode('', newRowIndex, col));
+        transaction.insertNode(
+          [...tableNode.path, cellIndex],
+          tableCellNode('', newRowIndex, col),
+        );
       }
     }
 
