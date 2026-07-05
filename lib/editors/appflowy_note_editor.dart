@@ -384,6 +384,11 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
         onPressed: _tableAddRow,
       ),
       _buildToolbarButton(
+        icon: Icons.table_chart_outlined,
+        tooltip: 'Table: Add Row Above',
+        onPressed: _tableAddRowAbove,
+      ),
+      _buildToolbarButton(
         icon: Icons.view_column,
         tooltip: 'Table: Add Column Right',
         onPressed: _tableAddColumn,
@@ -596,6 +601,42 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
 
     _editorState.apply(transaction);
     debugPrint('Added row at index $newRowIndex');
+  }
+
+  void _tableAddRowAbove() {
+    final tableNode = _findTableNode();
+    final cellPos = _getTableCellPosition();
+    if (tableNode == null || cellPos == null) return;
+
+    final colsLen = tableNode.attributes[TableBlockKeys.colsLen] as int? ?? 0;
+    final rowsLen = tableNode.attributes[TableBlockKeys.rowsLen] as int? ?? 0;
+    final currentRow = cellPos.key;
+    final newRowIndex = currentRow;
+
+    final transaction = _editorState.transaction;
+
+    // Shift: update rowPosition for existing cells with rowPosition >= currentRow
+    for (final c in tableNode.children) {
+      final r = c.attributes[TableCellBlockKeys.rowPosition] as int? ?? 0;
+      if (r >= currentRow) {
+        transaction.updateNode(c, {TableCellBlockKeys.rowPosition: r + 1});
+      }
+    }
+
+    // Update table rows count
+    transaction.updateNode(tableNode, {TableBlockKeys.rowsLen: rowsLen + 1});
+
+    // Insert new cells at the position of the new row
+    for (var col = 0; col < colsLen; col++) {
+      final cellIndex = newRowIndex * colsLen + col;
+      transaction.insertNode(
+        [...tableNode.path, cellIndex],
+        tableCellNode('', newRowIndex, col),
+      );
+    }
+
+    _editorState.apply(transaction);
+    debugPrint('Added row above at index $newRowIndex');
   }
 
   void _tableAddColumn() {

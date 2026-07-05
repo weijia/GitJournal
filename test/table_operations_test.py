@@ -52,6 +52,22 @@ class MockTableNode:
         self.rows_len += 1
         return True
 
+    def add_row_above(self, current_row):
+        """Insert a new row above the current row."""
+        if current_row < 0 or current_row >= self.rows_len:
+            return False
+        new_row_index = current_row
+        # Shift old cells with row_position >= current_row
+        for c in self.children:
+            if c.row_position >= current_row:
+                c.row_position += 1
+        # Insert new cells at the position of the new row
+        for col in range(self.cols_len):
+            cell_index = new_row_index * self.cols_len + col
+            self.children.insert(cell_index, MockCell(new_row_index, col))
+        self.rows_len += 1
+        return True
+
     def delete_row(self, row_index):
         if self.rows_len <= 1:
             return False
@@ -181,6 +197,42 @@ def test_add_row_middle():
     check(t.get_cell_node(0, 3).row_position == 3, 'old row 2 -> row 3')
     check_empty(t.validate(), 'valid after addRow middle')
 
+def test_add_row_above():
+    print('Test: addRowAbove')
+    t = MockTableNode(3, 3)
+    # Insert above row 1 (middle)
+    check(t.add_row_above(1), 'addRowAbove(1) succeeds')
+    check(t.rows_len == 4, 'rowsLen=4')
+    check(t.cols_len == 3, 'colsLen=3')
+    check(len(t.children) == 12, '12 cells')
+    check(t.get_cell_node(0, 0).row_position == 0, 'row 0 stays')
+    check(t.get_cell_node(0, 1).row_position == 1, 'new row 1 (above)')
+    check(t.get_cell_node(0, 2).row_position == 2, 'old row 1 -> row 2')
+    check(t.get_cell_node(0, 3).row_position == 3, 'old row 2 -> row 3')
+    check_empty(t.validate(), 'valid after addRowAbove middle')
+
+def test_add_row_above_first():
+    print('Test: addRowAbove (first row)')
+    t = MockTableNode(2, 3)
+    check(t.add_row_above(0), 'addRowAbove(0) succeeds')
+    check(t.rows_len == 4, 'rowsLen=4')
+    check(t.get_cell_node(0, 0).row_position == 0, 'new row 0 (above)')
+    check(t.get_cell_node(0, 1).row_position == 1, 'old row 0 -> row 1')
+    check(t.get_cell_node(0, 2).row_position == 2, 'old row 1 -> row 2')
+    check(t.get_cell_node(0, 3).row_position == 3, 'old row 2 -> row 3')
+    check_empty(t.validate(), 'valid after addRowAbove first')
+
+def test_add_row_above_last():
+    print('Test: addRowAbove (last row)')
+    t = MockTableNode(2, 3)
+    check(t.add_row_above(2), 'addRowAbove(2) succeeds')
+    check(t.rows_len == 4, 'rowsLen=4')
+    check(t.get_cell_node(0, 0).row_position == 0, 'row 0 stays')
+    check(t.get_cell_node(0, 1).row_position == 1, 'row 1 stays')
+    check(t.get_cell_node(0, 2).row_position == 2, 'new row 2 (above last)')
+    check(t.get_cell_node(0, 3).row_position == 3, 'old row 2 -> row 3')
+    check_empty(t.validate(), 'valid after addRowAbove last')
+
 def test_delete_row():
     print('Test: deleteRow')
     t = MockTableNode(3, 3)
@@ -292,6 +344,9 @@ if __name__ == '__main__':
     test_get_cell_node()
     test_add_row()
     test_add_row_middle()
+    test_add_row_above()
+    test_add_row_above_first()
+    test_add_row_above_last()
     test_delete_row()
     test_delete_row_last()
     test_add_column()
