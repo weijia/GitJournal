@@ -54,8 +54,11 @@ class NoteStorage {
     if (note.isEncrypted && encryptionPassword != null) {
       // Re-encrypt the note content before saving
       var plaintext = serialize(note);
-      var encryptedText =
-          await NoteEncryption.encrypt(plaintext, encryptionPassword);
+      var encryptedText = await NoteEncryption.encrypt(
+        plaintext,
+        encryptionPassword,
+        title: note.title,
+      );
       contents = utf8.encode(encryptedText);
     } else {
       contents = utf8.encode(serialize(note));
@@ -164,12 +167,12 @@ class NoteStorage {
     // Check if this is an encrypted note
     if (NoteEncryption.isEncryptedNote(rawContent)) {
       Log.d("Loading encrypted note: ${file.filePath}");
-      // Encrypted notes default to Markdown format
-      // The actual format will be revealed after decryption
+      // Extract title from PEM header (stored in plaintext for list display)
+      var title = NoteEncryption.extractTitle(rawContent);
       var note = Note.build(
         parent: parentFolder,
         file: file,
-        title: null,
+        title: title,
         body: "",
         noteType: NoteType.Unknown,
         tags: ISet(),

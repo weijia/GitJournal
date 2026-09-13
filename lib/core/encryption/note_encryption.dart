@@ -47,7 +47,8 @@ class NoteEncryption {
   ///
   /// The output contains all metadata (salt, nonce, algorithm info) needed
   /// for decryption, so only the password is required to decrypt.
-  static Future<String> encrypt(String plaintext, String password) async {
+  static Future<String> encrypt(String plaintext, String password,
+      {String? title}) async {
     if (password.isEmpty) {
       throw ArgumentError('Password must not be empty');
     }
@@ -86,6 +87,9 @@ class NoteEncryption {
     buffer.writeln('Version: 1');
     buffer.writeln('Algorithm: AES-256-GCM');
     buffer.writeln('KDF: PBKDF2-SHA256:$_kdfIterations');
+    if (title != null && title.isNotEmpty) {
+      buffer.writeln('Title: ${base64.encode(utf8.encode(title))}');
+    }
     buffer.writeln('Salt: ${base64.encode(salt)}');
     buffer.writeln('Nonce: ${base64.encode(nonce)}');
     buffer.writeln();
@@ -148,6 +152,31 @@ class NoteEncryption {
   static bool isEncryptedNote(String content) {
     final trimmed = content.trim();
     return trimmed.startsWith(_pemBegin) && trimmed.endsWith(_pemEnd);
+  }
+
+  /// Extracts the title from an encrypted note without decrypting.
+  /// Returns null if no title header is present.
+  static String? extractTitle(String pemText) {
+    final lines = LineSplitter.split(pemText.trim()).toList();
+    for (var i = 1; i < lines.length - 1; i++) {
+      final line = lines[i].trim();
+      if (line.isEmpty) break; // Headers end at blank line
+      if (line.startsWith(_pemEnd)) break;
+
+      final colonIndex = line.indexOf(':');
+      if (colonIndex > 0) {
+        final key = line.substring(0, colonIndex).trim();
+        final value = line.substring(colonIndex + 1).trim();
+        if (key.toLowerCase() == 'title') {
+          try {
+            return utf8.decode(base64.decode(value));
+          } catch (_) {
+            return null;
+          }
+        }
+      }
+    }
+    return null;
   }
 
   // --- Internal helpers ---
