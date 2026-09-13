@@ -538,17 +538,17 @@ class GitJournalRepo with ChangeNotifier {
     return newNotes;
   }
 
-  Future<Note> saveNoteToDisk(Note note) async {
+  Future<Note> saveNoteToDisk(Note note, {String? encryptionPassword}) async {
     assert(note.oid.isEmpty);
-    return NoteStorage.save(note);
+    return NoteStorage.save(note, encryptionPassword: encryptionPassword);
   }
 
-  Future<Note> addNote(Note note) async {
+  Future<Note> addNote(Note note, {String? encryptionPassword}) async {
     assert(note.oid.isEmpty);
     logEvent(Event.NoteAdded);
 
     note = note.updateModified();
-    note = await NoteStorage.save(note);
+    note = await NoteStorage.save(note, encryptionPassword: encryptionPassword);
     note.parent.add(note);
 
     await _gitOpLock.synchronized(() async {
@@ -607,7 +607,8 @@ class GitJournalRepo with ChangeNotifier {
     unawaited(_syncNotes());
   }
 
-  Future<Note> updateNote(Note oldNote, Note newNote) async {
+  Future<Note> updateNote(Note oldNote, Note newNote,
+      {String? encryptionPassword}) async {
     assert(oldNote.oid.isNotEmpty);
     assert(newNote.oid.isEmpty);
 
@@ -619,7 +620,8 @@ class GitJournalRepo with ChangeNotifier {
     newNote = newNote.updateModified();
 
     try {
-      newNote = await NoteStorage.save(newNote);
+      newNote = await NoteStorage.save(newNote,
+          encryptionPassword: encryptionPassword);
     } catch (ex, st) {
       Log.e("Note saving failed", ex: ex, stacktrace: st);
       rethrow;

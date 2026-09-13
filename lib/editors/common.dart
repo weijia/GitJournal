@@ -32,6 +32,9 @@ abstract class EditorCommon {
   void noteEditorChooserSelected(Note note);
   void moveNoteToFolderSelected(Note note);
   void exitEditorSelected(Note note);
+
+  void encryptNote(Note note);
+  void decryptNote(Note note);
 }
 
 abstract class EditorState with ChangeNotifier {
