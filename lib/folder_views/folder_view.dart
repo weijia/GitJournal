@@ -234,9 +234,10 @@ class _FolderViewState extends State<FolderView> {
     if (!inSelectionMode) {
       // For encrypted notes, show a read-only viewer first
       if (note.isEncrypted) {
-        final wantsEdit = await EncryptedNoteViewer.show(context, note);
-        if (wantsEdit && mounted) {
-          openNoteEditor(context, note, widget.notesFolder);
+        final password = await EncryptedNoteViewer.show(context, note);
+        if (password != null && mounted) {
+          openNoteEditor(context, note, widget.notesFolder,
+              encryptionPassword: password);
         }
         return;
       }

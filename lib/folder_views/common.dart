@@ -84,6 +84,7 @@ Future<void> openNoteEditor(
   NotesFolder parentFolder, {
   bool editMode = false,
   String? highlightString,
+  String? encryptionPassword,
 }) async {
   var route = MaterialPageRoute(
     builder: (context) => NoteEditor.fromNote(
@@ -91,6 +92,7 @@ Future<void> openNoteEditor(
       parentFolder,
       editMode: editMode,
       highlightString: highlightString,
+      encryptionPassword: encryptionPassword,
     ),
     settings: const RouteSettings(name: '/note/'),
   );

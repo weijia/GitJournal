@@ -14,26 +14,26 @@ import 'package:gitjournal/widgets/encrypted_password_dialog.dart';
 ///
 /// This is read-only - the note remains encrypted on disk.
 /// Users can choose to enter edit mode from here if they want to modify.
+/// When entering edit mode, the password is passed along so the user
+/// doesn't need to enter it again.
 class EncryptedNoteViewer extends StatefulWidget {
   final Note note;
-  final VoidCallback? onEditRequested;
 
   const EncryptedNoteViewer({
     super.key,
     required this.note,
-    this.onEditRequested,
   });
 
-  /// Shows the encrypted note viewer. Returns true if user wants to edit.
-  static Future<bool> show(
+  /// Shows the encrypted note viewer.
+  /// Returns the encryption password if user wants to edit, or null if cancelled.
+  static Future<String?> show(
     BuildContext context,
     Note note,
   ) async {
-    return await showDialog<bool>(
-          context: context,
-          builder: (context) => EncryptedNoteViewer(note: note),
-        ) ??
-        false;
+    return await showDialog<String>(
+      context: context,
+      builder: (context) => EncryptedNoteViewer(note: note),
+    );
   }
 
   @override
@@ -44,6 +44,8 @@ class _EncryptedNoteViewerState extends State<EncryptedNoteViewer> {
   bool _isDecrypting = false;
   String? _decryptedContent;
   String? _errorMessage;
+  String? _password; // cached for passing to editor
+  Note? _decryptedNote;
   final _scrollController = ScrollController();
 
   @override
@@ -63,7 +65,7 @@ class _EncryptedNoteViewerState extends State<EncryptedNoteViewer> {
   Future<void> _promptPassword() async {
     final password = await EncryptedPasswordDialog.showDecrypt(context);
     if (password == null) {
-      if (mounted) Navigator.of(context).pop(false);
+      if (mounted) Navigator.of(context).pop();
       return;
     }
 
@@ -79,6 +81,8 @@ class _EncryptedNoteViewerState extends State<EncryptedNoteViewer> {
         setState(() {
           _isDecrypting = false;
           _decryptedContent = decryptedNote.body;
+          _decryptedNote = decryptedNote;
+          _password = password;
         });
       }
     } catch (e, st) {
@@ -113,12 +117,12 @@ class _EncryptedNoteViewerState extends State<EncryptedNoteViewer> {
       content: _buildContent(),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
+          onPressed: () => Navigator.of(context).pop(),
           child: const Text('Close'),
         ),
         if (_decryptedContent != null)
           ElevatedButton.icon(
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () => Navigator.of(context).pop(_password),
             icon: const Icon(Icons.edit),
             label: const Text('Edit'),
           ),

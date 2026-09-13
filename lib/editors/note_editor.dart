@@ -68,12 +68,14 @@ class NoteEditor extends StatefulWidget {
   final bool editMode;
 
   final String? highlightString;
+  final String? encryptionPassword;
 
   NoteEditor.fromNote(
     Note note,
     this.parentFolderView, {
     this.editMode = false,
     this.highlightString,
+    this.encryptionPassword,
   })  : existingNote = note,
         notesFolder = note.parent,
         defaultEditorType = null,
@@ -225,11 +227,46 @@ class NoteEditorState extends State<NoteEditor>
       }
     }
 
-    // If note is encrypted, show password dialog after first frame
+    // If note is encrypted, decrypt it
     if (_note.isEncrypted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _promptDecryptPassword();
-      });
+      if (widget.encryptionPassword != null) {
+        // Password provided by caller (e.g. from EncryptedNoteViewer)
+        _encryptionPassword = widget.encryptionPassword;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _decryptWithPassword(widget.encryptionPassword!);
+        });
+      } else {
+        // No password provided, prompt user
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _promptDecryptPassword();
+        });
+      }
+    }
+  }
+
+  /// Decrypts the note with a known password (no dialog).
+  Future<void> _decryptWithPassword(String password) async {
+    if (!mounted) return;
+
+    try {
+      var decryptedNote = await NoteStorage.decryptNote(_note, password);
+      if (mounted) {
+        setState(() {
+          _note = decryptedNote;
+          _encryptionPassword = password;
+          _originalNoteOid = decryptedNote.oid;
+          _originalNoteData = decryptedNote.data;
+        });
+      }
+    } catch (e, st) {
+      Log.e("Failed to decrypt note with provided password",
+          ex: e, stacktrace: st);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Decryption failed: $e')),
+        );
+        Navigator.of(context).pop();
+      }
     }
   }
 
