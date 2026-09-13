@@ -160,7 +160,7 @@ class NoteEncryption {
     );
     return pbkdf2.deriveKeyFromPassword(
       password: password,
-      salt: salt,
+      nonce: salt,
     );
   }
 
