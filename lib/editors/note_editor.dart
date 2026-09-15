@@ -98,7 +98,8 @@ class NoteEditor extends StatefulWidget {
     this.defaultFileFormat,
   })  : existingNote = null,
         editMode = true,
-        highlightString = null;
+        highlightString = null,
+        encryptionPassword = null;
 
   @override
   NoteEditorState createState() {
@@ -413,7 +414,10 @@ class NoteEditorState extends State<NoteEditor>
   }
 
   @override
-  Future<void> noteEditorChooserSelected(Note note) async {
+  void noteEditorChooserSelected(Note note) =>
+      _lockAndCall(_noteEditorChooserSelected, note);
+
+  Future<void> _noteEditorChooserSelected(Note note) async {
     assert(note.oid.isEmpty);
 
     var newEditorType = await showDialog<EditorType>(
