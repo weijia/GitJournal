@@ -680,7 +680,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     final cellPos = _getTableCellPosition();
     if (tableNode == null || cellPos == null) return;
 
-    final colsLen = tableNode.attributes[TableBlockKeys.colsLen] as int? ?? 0;
     final rowsLen = tableNode.attributes[TableBlockKeys.rowsLen] as int? ?? 0;
     if (rowsLen <= 1) return;
     final rowToDelete = cellPos.key;
@@ -716,7 +715,6 @@ class AppFlowyNoteEditorState extends State<AppFlowyNoteEditor>
     if (tableNode == null || cellPos == null) return;
 
     final colsLen = tableNode.attributes[TableBlockKeys.colsLen] as int? ?? 0;
-    final rowsLen = tableNode.attributes[TableBlockKeys.rowsLen] as int? ?? 0;
     if (colsLen <= 1) return;
     final colToDelete = cellPos.value;
 

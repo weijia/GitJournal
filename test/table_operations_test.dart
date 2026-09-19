@@ -1,11 +1,10 @@
+// ignore_for_file: avoid_print
 // Pure Dart test for table operations correctness.
 // Run: dart test/test/table_operations_test.dart
 // No Flutter SDK required - this tests the core logic only.
 //
 // Validates that all table operations (add/delete/duplicate row/column)
 // maintain correct flat cell structure: [row0col0, row0col1, row1col0, ...]
-
-import 'dart:math';
 
 /// Simulates a table node with flat cell storage
 class MockTableNode {
@@ -210,13 +209,24 @@ int _testCount = 0;
 int _passCount = 0;
 int _failCount = 0;
 
-void expect(bool condition, String description) {
+void expect(dynamic actual, dynamic expected, [String? description]) {
   _testCount++;
-  if (condition) {
-    _passCount++;
+  if (expected is String && description == null) {
+    // 2-arg form: expect(bool condition, String description)
+    if (actual as bool) {
+      _passCount++;
+    } else {
+      _failCount++;
+      print('  FAIL: $expected');
+    }
   } else {
-    _failCount++;
-    print('  FAIL: $description');
+    // 3-arg form: expect(actual, expected, description)
+    if (actual == expected) {
+      _passCount++;
+    } else {
+      _failCount++;
+      print('  FAIL: $description (expected: $expected, got: $actual)');
+    }
   }
 }
 

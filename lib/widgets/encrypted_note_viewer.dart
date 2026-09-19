@@ -45,7 +45,6 @@ class _EncryptedNoteViewerState extends State<EncryptedNoteViewer> {
   String? _decryptedContent;
   String? _errorMessage;
   String? _password; // cached for passing to editor
-  Note? _decryptedNote;
   final _scrollController = ScrollController();
 
   @override
@@ -81,7 +80,6 @@ class _EncryptedNoteViewerState extends State<EncryptedNoteViewer> {
         setState(() {
           _isDecrypting = false;
           _decryptedContent = decryptedNote.body;
-          _decryptedNote = decryptedNote;
           _password = password;
         });
       }
