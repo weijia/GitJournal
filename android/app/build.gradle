@@ -31,6 +31,10 @@ android {
         checkReleaseBuilds false
     }
 
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+
     defaultConfig {
         applicationId "io.gitjournal.gitjournal"
         minSdkVersion flutter.minSdkVersion
