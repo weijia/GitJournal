@@ -303,13 +303,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsDebugCopy => 'Debug Logs Copied';
 
   @override
-  String get settingsDebugClearTitle => '清空日志';
+  String get settingsDebugClearTitle => 'Clear Logs';
 
   @override
-  String get settingsDebugClearMessage => '确定要清空所有日志吗？';
+  String get settingsDebugClearMessage =>
+      'Are you sure you want to clear all logs?';
 
   @override
-  String get settingsDebugClearDone => '日志已清空';
+  String get settingsDebugClearDone => 'Logs Cleared';
 
   @override
   String get settingsImagesTitle => 'Image Settings';
@@ -736,6 +737,12 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get settingsListUserInterfaceSubtitle =>
       'Theme, Language, Home, Bottom Bar, Rendering';
+
+  @override
+  String get settingsListReposTitle => 'Repositories';
+
+  @override
+  String get settingsListReposSubtitle => 'Manage multiple Git repositories';
 
   @override
   String get settingsListGitTitle => 'Git';
@@ -1180,6 +1187,70 @@ class AppLocalizationsZh extends AppLocalizations {
   String get drawerAddRepo => 'Add Repository';
 
   @override
+  String get settingsReposTitle => 'Repositories';
+
+  @override
+  String get settingsReposAddRepo => 'Add Repository';
+
+  @override
+  String get settingsReposRepoName => 'Repository Name';
+
+  @override
+  String get settingsReposRepoNameHint => 'My Journal';
+
+  @override
+  String get settingsReposRepoNameError => 'Please enter a name';
+
+  @override
+  String get settingsReposCurrentBadge => 'Current';
+
+  @override
+  String get settingsReposRenameRepo => 'Rename';
+
+  @override
+  String get settingsReposDeleteRepo => 'Delete Repository';
+
+  @override
+  String get settingsReposDelete => 'Delete';
+
+  @override
+  String settingsReposDeleteWarning(String name) {
+    return 'Are you sure you want to delete \"$name\"? This cannot be undone.';
+  }
+
+  @override
+  String settingsReposDeleteCurrentWarning(String name) {
+    return 'This is your current repository. Deleting it will switch you to another repository. Are you sure you want to delete \"$name\"?';
+  }
+
+  @override
+  String get settingsReposAddError => 'Failed to add repository';
+
+  @override
+  String get settingsReposSwitchError => 'Failed to switch repository';
+
+  @override
+  String get settingsReposRenameError => 'Failed to rename repository';
+
+  @override
+  String get settingsReposDeleteError => 'Failed to delete repository';
+
+  @override
+  String get settingsReposAddToHome => 'Add to Home Screen';
+
+  @override
+  String settingsReposWidgetAdded(String name) {
+    return '\"$name\" added to home screen';
+  }
+
+  @override
+  String get settingsReposWidgetPinFailed =>
+      'Failed to pin widget to home screen';
+
+  @override
+  String get settingsReposWidgetError => 'Failed to add widget';
+
+  @override
   String get drawerLogin => 'Login';
 
   @override
@@ -1405,13 +1476,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get exportRepo => 'Export Repository';
 
   @override
-  String get settingsStorageCopyRepo => '复制仓库到目录';
+  String get settingsStorageCopyRepo => 'Copy Repo to Directory';
 
   @override
-  String get settingsStorageCopyRepoSubtitle => '将整个仓库（包括 .git）复制到选定目录';
+  String get settingsStorageCopyRepoSubtitle =>
+      'Copy entire repo including .git to a selected directory';
 
   @override
-  String get settingsStorageCopyRepoDone => '仓库已复制';
+  String get settingsStorageCopyRepoDone => 'Repo Copied';
 
   @override
   String get shareAsZip => 'Share as a ZIP file';
@@ -2142,6 +2214,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
       'Theme, Language, Home, Bottom Bar, Rendering';
 
   @override
+  String get settingsListReposTitle => '仓库';
+
+  @override
+  String get settingsListReposSubtitle => '管理多个 Git 仓库';
+
+  @override
   String get settingsListGitTitle => 'Git';
 
   @override
@@ -2571,6 +2649,69 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get drawerAddRepo => 'Add Repository';
+
+  @override
+  String get settingsReposTitle => '仓库管理';
+
+  @override
+  String get settingsReposAddRepo => '添加仓库';
+
+  @override
+  String get settingsReposRepoName => '仓库名称';
+
+  @override
+  String get settingsReposRepoNameHint => '我的笔记';
+
+  @override
+  String get settingsReposRepoNameError => '请输入名称';
+
+  @override
+  String get settingsReposCurrentBadge => '当前';
+
+  @override
+  String get settingsReposRenameRepo => '重命名';
+
+  @override
+  String get settingsReposDeleteRepo => '删除仓库';
+
+  @override
+  String get settingsReposDelete => '删除';
+
+  @override
+  String settingsReposDeleteWarning(String name) {
+    return '确定要删除「$name」吗？此操作无法撤销。';
+  }
+
+  @override
+  String settingsReposDeleteCurrentWarning(String name) {
+    return '这是你当前使用的仓库。删除后将自动切换到另一个仓库。确定要删除「$name」吗？';
+  }
+
+  @override
+  String get settingsReposAddError => '添加仓库失败';
+
+  @override
+  String get settingsReposSwitchError => '切换仓库失败';
+
+  @override
+  String get settingsReposRenameError => '重命名仓库失败';
+
+  @override
+  String get settingsReposDeleteError => '删除仓库失败';
+
+  @override
+  String get settingsReposAddToHome => '添加到主屏幕';
+
+  @override
+  String settingsReposWidgetAdded(String name) {
+    return '已将\"$name\"添加到主屏幕';
+  }
+
+  @override
+  String get settingsReposWidgetPinFailed => '添加小组件到主屏幕失败';
+
+  @override
+  String get settingsReposWidgetError => '添加小组件失败';
 
   @override
   String get drawerLogin => 'Login';

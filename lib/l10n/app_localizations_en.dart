@@ -306,7 +306,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsDebugClearTitle => 'Clear Logs';
 
   @override
-  String get settingsDebugClearMessage => 'Are you sure you want to clear all logs?';
+  String get settingsDebugClearMessage =>
+      'Are you sure you want to clear all logs?';
 
   @override
   String get settingsDebugClearDone => 'Logs Cleared';
@@ -736,6 +737,12 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsListUserInterfaceSubtitle =>
       'Theme, Language, Home, Bottom Bar, Rendering';
+
+  @override
+  String get settingsListReposTitle => 'Repositories';
+
+  @override
+  String get settingsListReposSubtitle => 'Manage multiple Git repositories';
 
   @override
   String get settingsListGitTitle => 'Git';
@@ -1178,6 +1185,70 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get drawerAddRepo => 'Add Repository';
+
+  @override
+  String get settingsReposTitle => 'Repositories';
+
+  @override
+  String get settingsReposAddRepo => 'Add Repository';
+
+  @override
+  String get settingsReposRepoName => 'Repository Name';
+
+  @override
+  String get settingsReposRepoNameHint => 'My Journal';
+
+  @override
+  String get settingsReposRepoNameError => 'Please enter a name';
+
+  @override
+  String get settingsReposCurrentBadge => 'Current';
+
+  @override
+  String get settingsReposRenameRepo => 'Rename';
+
+  @override
+  String get settingsReposDeleteRepo => 'Delete Repository';
+
+  @override
+  String get settingsReposDelete => 'Delete';
+
+  @override
+  String settingsReposDeleteWarning(String name) {
+    return 'Are you sure you want to delete \"$name\"? This cannot be undone.';
+  }
+
+  @override
+  String settingsReposDeleteCurrentWarning(String name) {
+    return 'This is your current repository. Deleting it will switch you to another repository. Are you sure you want to delete \"$name\"?';
+  }
+
+  @override
+  String get settingsReposAddError => 'Failed to add repository';
+
+  @override
+  String get settingsReposSwitchError => 'Failed to switch repository';
+
+  @override
+  String get settingsReposRenameError => 'Failed to rename repository';
+
+  @override
+  String get settingsReposDeleteError => 'Failed to delete repository';
+
+  @override
+  String get settingsReposAddToHome => 'Add to Home Screen';
+
+  @override
+  String settingsReposWidgetAdded(String name) {
+    return '\"$name\" added to home screen';
+  }
+
+  @override
+  String get settingsReposWidgetPinFailed =>
+      'Failed to pin widget to home screen';
+
+  @override
+  String get settingsReposWidgetError => 'Failed to add widget';
 
   @override
   String get drawerLogin => 'Login';

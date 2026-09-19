@@ -24,6 +24,7 @@ import 'package:gitjournal/settings/app_config.dart';
 import 'package:gitjournal/settings/settings.dart';
 import 'package:gitjournal/settings/storage_config.dart';
 import 'package:gitjournal/themes.dart';
+import 'package:gitjournal/widgets/home_widget_service.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -108,17 +109,20 @@ class JournalApp extends StatefulWidget {
   JournalAppState createState() => JournalAppState();
 }
 
-class JournalAppState extends State<JournalApp> {
+class JournalAppState extends State<JournalApp> with WidgetsBindingObserver {
   final _navigatorKey = GlobalKey<NavigatorState>();
   String? _pendingShortcut;
+  String? _pendingRepoId;
 
   StreamSubscription? _intentDataStreamSubscription;
+  StreamSubscription? _widgetClickSubscription;
   var _sharedText = "";
   var _sharedImages = <String>[];
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     if (!Platform.isAndroid && !Platform.isIOS) {
       return;
@@ -159,6 +163,7 @@ class JournalAppState extends State<JournalApp> {
     });
 
     _initShareSubscriptions();
+    _initWidgetHandling();
   }
 
   void _afterBuild(BuildContext context) {
@@ -166,6 +171,11 @@ class JournalAppState extends State<JournalApp> {
       var routeName = AppRoute.NewNotePrefix + _pendingShortcut!;
       _navigatorKey.currentState!.pushNamed(routeName);
       _pendingShortcut = null;
+    }
+
+    if (_pendingRepoId != null) {
+      _switchToRepo(_pendingRepoId!);
+      _pendingRepoId = null;
     }
   }
 
@@ -243,10 +253,67 @@ class JournalAppState extends State<JournalApp> {
     });
   }
 
+  void _initWidgetHandling() {
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      return;
+    }
+
+    HomeWidgetService.init();
+
+    // Check if app was launched from a widget
+    HomeWidgetService.getInitialWidgetRepoId().then((repoId) {
+      if (repoId != null && repoId.isNotEmpty) {
+        Log.i("App launched from widget with repoId: $repoId");
+        _pendingRepoId = repoId;
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _afterBuild(context));
+      }
+    });
+
+    // Listen for widget clicks while app is running
+    _widgetClickSubscription = HomeWidgetService.widgetRepoIdStream.listen((repoId) {
+      Log.i("Widget clicked - repoId: $repoId");
+      _switchToRepo(repoId);
+    });
+  }
+
+  void _switchToRepo(String repoId) {
+    var repoManager = context.read<RepositoryManager>();
+    if (!repoManager.repoIds.contains(repoId)) {
+      Log.e("Repo not found: $repoId");
+      return;
+    }
+
+    if (repoManager.currentId == repoId) {
+      Log.i("Already on repo: $repoId");
+      return;
+    }
+
+    Log.i("Switching to repo from widget: $repoId");
+    repoManager.setCurrentRepo(repoId);
+  }
+
   @override
   void dispose() {
     _intentDataStreamSubscription?.cancel();
+    _widgetClickSubscription?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    if (state == AppLifecycleState.resumed) {
+      // Check if we were resumed from a widget click
+      HomeWidgetService.getInitialWidgetRepoId().then((repoId) {
+        if (repoId != null && repoId.isNotEmpty) {
+          Log.i("App resumed with widget repoId: $repoId");
+          _switchToRepo(repoId);
+        }
+      });
+    }
   }
 
   @override

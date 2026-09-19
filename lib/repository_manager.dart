@@ -11,6 +11,7 @@ import 'package:gitjournal/settings/settings.dart';
 import 'package:gitjournal/settings/storage_config.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:universal_io/io.dart' as io;
 
 class RepositoryManager with ChangeNotifier {
   var repoIds = <String>[];
@@ -126,6 +127,53 @@ class RepositoryManager with ChangeNotifier {
 
     await _save();
     await buildActiveRepository();
+  }
+
+  Future<void> renameRepo(String id, String newName) async {
+    assert(repoIds.contains(id));
+    if (newName.isEmpty) return;
+
+    await pref.setString("${id}_$FOLDER_NAME_KEY", newName);
+    Log.i("Renamed repo $id to $newName");
+
+    notifyListeners();
+  }
+
+  Future<void> deleteRepo(String id) async {
+    assert(repoIds.contains(id));
+    Log.i("Deleting repo: $id");
+
+    // If deleting current repo, switch to another one first
+    if (currentId == id) {
+      await deleteCurrent();
+      return;
+    }
+
+    // Delete the repo data on disk
+    var repoDir = p.join(gitBaseDir, repoFolderName(id));
+    try {
+      var dir = io.Directory(repoDir);
+      if (await dir.exists()) {
+        await dir.delete(recursive: true);
+      }
+    } catch (e) {
+      Log.e("Failed to delete repo directory: $repoDir", ex: e);
+    }
+
+    // Clear shared preferences for this repo
+    var keysToRemove = <String>[];
+    for (var key in pref.getKeys()) {
+      if (key.startsWith("${id}_")) {
+        keysToRemove.add(key);
+      }
+    }
+    for (var key in keysToRemove) {
+      await pref.remove(key);
+    }
+
+    repoIds.remove(id);
+    await _save();
+    notifyListeners();
   }
 
   // Not sure when to call this!

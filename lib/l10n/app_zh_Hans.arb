@@ -232,6 +232,8 @@
   "settingsFileTypesNoExt": "No Extension",
   "settingsListUserInterfaceTitle": "User Interface",
   "settingsListUserInterfaceSubtitle": "Theme, Language, Home, Bottom Bar, Rendering",
+  "settingsListReposTitle": "仓库",
+  "settingsListReposSubtitle": "管理多个 Git 仓库",
   "settingsListGitTitle": "Git",
   "settingsListGitSubtitle": "Git Author, Remote, Sync Frequency",
   "settingsListEditorTitle": "Editor",
@@ -428,6 +430,49 @@
   "drawerGraph": "Graph View",
   "drawerRemote": "No Git Host",
   "drawerAddRepo": "Add Repository",
+  "settingsReposTitle": "仓库管理",
+  "settingsReposAddRepo": "添加仓库",
+  "settingsReposRepoName": "仓库名称",
+  "settingsReposRepoNameHint": "我的笔记",
+  "settingsReposRepoNameError": "请输入名称",
+  "settingsReposCurrentBadge": "当前",
+  "settingsReposRenameRepo": "重命名",
+  "settingsReposDeleteRepo": "删除仓库",
+  "settingsReposDelete": "删除",
+  "settingsReposDeleteWarning": "确定要删除「{name}」吗？此操作无法撤销。",
+  "@settingsReposDeleteWarning": {
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "My Journal"
+      }
+    }
+  },
+  "settingsReposDeleteCurrentWarning": "这是你当前使用的仓库。删除后将自动切换到另一个仓库。确定要删除「{name}」吗？",
+  "@settingsReposDeleteCurrentWarning": {
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "My Journal"
+      }
+    }
+  },
+  "settingsReposAddError": "添加仓库失败",
+  "settingsReposSwitchError": "切换仓库失败",
+  "settingsReposRenameError": "重命名仓库失败",
+  "settingsReposDeleteError": "删除仓库失败",
+  "settingsReposAddToHome": "添加到主屏幕",
+  "settingsReposWidgetAdded": "已将\"{name}\"添加到主屏幕",
+  "@settingsReposWidgetAdded": {
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "My Journal"
+      }
+    }
+  },
+  "settingsReposWidgetPinFailed": "添加小组件到主屏幕失败",
+  "settingsReposWidgetError": "添加小组件失败",
   "drawerLogin": "Login",
   "drawerHistory": "History",
   "setupAutoConfigureTitle": "How do you want to do this?",

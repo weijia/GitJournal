@@ -235,6 +235,8 @@
   "settingsFileTypesNoExt": "No Extension",
   "settingsListUserInterfaceTitle": "User Interface",
   "settingsListUserInterfaceSubtitle": "Theme, Language, Home, Bottom Bar, Rendering",
+  "settingsListReposTitle": "Repositories",
+  "settingsListReposSubtitle": "Manage multiple Git repositories",
   "settingsListGitTitle": "Git",
   "settingsListGitSubtitle": "Git Author, Remote, Sync Frequency",
   "settingsListEditorTitle": "Editor",
@@ -434,6 +436,49 @@
   "drawerGraph": "Graph View",
   "drawerRemote": "No Git Host",
   "drawerAddRepo": "Add Repository",
+  "settingsReposTitle": "Repositories",
+  "settingsReposAddRepo": "Add Repository",
+  "settingsReposRepoName": "Repository Name",
+  "settingsReposRepoNameHint": "My Journal",
+  "settingsReposRepoNameError": "Please enter a name",
+  "settingsReposCurrentBadge": "Current",
+  "settingsReposRenameRepo": "Rename",
+  "settingsReposDeleteRepo": "Delete Repository",
+  "settingsReposDelete": "Delete",
+  "settingsReposDeleteWarning": "Are you sure you want to delete \"{name}\"? This cannot be undone.",
+  "@settingsReposDeleteWarning": {
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "My Journal"
+      }
+    }
+  },
+  "settingsReposDeleteCurrentWarning": "This is your current repository. Deleting it will switch you to another repository. Are you sure you want to delete \"{name}\"?",
+  "@settingsReposDeleteCurrentWarning": {
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "My Journal"
+      }
+    }
+  },
+  "settingsReposAddError": "Failed to add repository",
+  "settingsReposSwitchError": "Failed to switch repository",
+  "settingsReposRenameError": "Failed to rename repository",
+  "settingsReposDeleteError": "Failed to delete repository",
+  "settingsReposAddToHome": "Add to Home Screen",
+  "settingsReposWidgetAdded": "\"{name}\" added to home screen",
+  "@settingsReposWidgetAdded": {
+    "placeholders": {
+      "name": {
+        "type": "String",
+        "example": "My Journal"
+      }
+    }
+  },
+  "settingsReposWidgetPinFailed": "Failed to pin widget to home screen",
+  "settingsReposWidgetError": "Failed to add widget",
   "drawerLogin": "Login",
   "drawerHistory": "History",
   "setupAutoConfigureTitle": "How do you want to do this?",
