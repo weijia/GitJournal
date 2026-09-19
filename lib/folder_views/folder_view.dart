@@ -230,7 +230,7 @@ class _FolderViewState extends State<FolderView> {
     }
   }
 
-  void _noteTapped(Note note) async {
+  Future<void> _noteTapped(Note note) async {
     if (!inSelectionMode) {
       // For encrypted notes, show a read-only viewer first
       if (note.isEncrypted) {
