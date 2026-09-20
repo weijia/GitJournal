@@ -324,8 +324,9 @@ class JournalAppState extends State<JournalApp> with WidgetsBindingObserver {
     try {
       settings = context.watch<Settings>();
     } catch (_) {
-      // Settings is unavailable while repo is (re)loading.
-      // Show a loading indicator instead of a blank screen.
+      // This can happen during initial app boot before any repo is loaded,
+      // or after a repo deletion (clearExisting). Show a loading indicator
+      // instead of a blank screen.
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         home: Scaffold(

@@ -40,15 +40,22 @@ class RepositoryManager with ChangeNotifier {
   Future<GitJournalRepo?> buildActiveRepository({
     bool loadFromCache = true,
     bool syncOnBoot = true,
+    bool clearExisting = false,
   }) async {
     var repoCacheDir = p.join(cacheDir, currentId);
 
-    _repo = null;
+    // When clearExisting is true (e.g. after deleting a repo), null out
+    // _repo immediately so the UI doesn't try to use deleted data.
+    // Otherwise, keep the old repo visible while loading the new one –
+    // this prevents a grey screen during repo switches from widgets.
     _repoError = null;
-    notifyListeners();
+    if (clearExisting) {
+      _repo = null;
+      notifyListeners();
+    }
 
     try {
-      _repo = await GitJournalRepo.load(
+      var newRepo = await GitJournalRepo.load(
         repoManager: this,
         gitBaseDir: gitBaseDir,
         cacheDir: repoCacheDir,
@@ -57,9 +64,13 @@ class RepositoryManager with ChangeNotifier {
         loadFromCache: loadFromCache,
         syncOnBoot: syncOnBoot,
       );
+      _repo = newRepo;
     } catch (ex, st) {
       Log.e("buildActiveRepo", ex: ex, stacktrace: st);
       _repoError = ex;
+      if (clearExisting) {
+        _repo = null;
+      }
       notifyListeners();
       return null;
     }
@@ -107,7 +118,7 @@ class RepositoryManager with ChangeNotifier {
     await _save();
 
     Log.i("Switching to repo with id: $id");
-    buildActiveRepository();
+    await buildActiveRepository();
   }
 
   Future<void> deleteCurrent() async {
@@ -126,7 +137,7 @@ class RepositoryManager with ChangeNotifier {
     currentId = repoIds[i];
 
     await _save();
-    await buildActiveRepository();
+    await buildActiveRepository(clearExisting: true);
   }
 
   Future<void> renameRepo(String id, String newName) async {
