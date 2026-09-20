@@ -30,12 +30,8 @@ class RepoWidgetProvider : HomeWidgetProvider() {
 
         for (appWidgetId in appWidgetIds) {
             val views = buildRemoteViews(
-                context,
-                appWidgetManager,
-                appWidgetId,
-                title,
-                subtitle,
-                repoId
+                context, appWidgetManager, appWidgetId,
+                title, subtitle, repoId
             )
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
@@ -47,7 +43,6 @@ class RepoWidgetProvider : HomeWidgetProvider() {
         appWidgetId: Int,
         newOptions: android.os.Bundle
     ) {
-        // Re-render the widget so title visibility adapts to the new size
         val widgetData = context.getSharedPreferences(
             "HomeWidgetPreferences", Context.MODE_PRIVATE
         )
@@ -58,13 +53,8 @@ class RepoWidgetProvider : HomeWidgetProvider() {
         val repoId = widgetData.getString("repo_id", null)
 
         val views = buildRemoteViews(
-            context,
-            appWidgetManager,
-            appWidgetId,
-            title,
-            subtitle,
-            repoId,
-            options = newOptions
+            context, appWidgetManager, appWidgetId,
+            title, subtitle, repoId, options = newOptions
         )
         appWidgetManager.updateAppWidget(appWidgetId, views)
     }
@@ -80,13 +70,13 @@ class RepoWidgetProvider : HomeWidgetProvider() {
     ): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_repo)
 
-        // Set text on both views (they are gone by default in the 1x1 layout)
+        // Title is always visible (shown below the icon at 1x1)
         views.setTextViewText(R.id.widget_title, title)
+
+        // Subtitle is hidden at 1x1, shown when widget is resized larger
         views.setTextViewText(R.id.widget_subtitle, subtitle)
 
-        // Determine if we have enough space to show the title.
-        // When the widget is resized beyond ~100dp (roughly 2x2), show the title.
-        val showTitle = if (options != null) {
+        val showSubtitle = if (options != null) {
             val minWidth = options.getInt(
                 AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0
             )
@@ -95,17 +85,12 @@ class RepoWidgetProvider : HomeWidgetProvider() {
             )
             minWidth >= 100 || minHeight >= 140
         } else {
-            // On initial placement (1x1), keep text hidden
             false
         }
 
         views.setViewVisibility(
-            R.id.widget_title,
-            if (showTitle) android.view.View.VISIBLE else android.view.View.GONE
-        )
-        views.setViewVisibility(
             R.id.widget_subtitle,
-            if (showTitle) android.view.View.VISIBLE else android.view.View.GONE
+            if (showSubtitle) android.view.View.VISIBLE else android.view.View.GONE
         )
 
         // Set click intent
@@ -116,9 +101,7 @@ class RepoWidgetProvider : HomeWidgetProvider() {
         }
 
         val pendingIntent = HomeWidgetLaunchIntent.getActivity(
-            context,
-            MainActivity::class.java,
-            uri
+            context, MainActivity::class.java, uri
         )
         views.setOnClickPendingIntent(R.id.widget_container, pendingIntent)
 
