@@ -563,6 +563,62 @@ abstract class AppLocalizations {
 
   /// No description provided for @settingsGitAuthor.
   ///
+  /// No description provided for @settingsGitRepoInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Git Repository Info'**
+  String get settingsGitRepoInfo;
+
+  /// No description provided for @settingsGitRepoInfoId.
+  ///
+  /// In en, this message translates to:
+  /// **'Repository ID'**
+  String get settingsGitRepoInfoId;
+
+  /// No description provided for @settingsGitRepoInfoBranch.
+  ///
+  /// In en, this message translates to:
+  /// **'Current Branch'**
+  String get settingsGitRepoInfoBranch;
+
+  /// No description provided for @settingsGitRepoInfoPath.
+  ///
+  /// In en, this message translates to:
+  /// **'Repository Path'**
+  String get settingsGitRepoInfoPath;
+
+  /// No description provided for @settingsGitRepoInfoRemoteConfigured.
+  ///
+  /// In en, this message translates to:
+  /// **'Remote Configured'**
+  String get settingsGitRepoInfoRemoteConfigured;
+
+  /// No description provided for @settingsGitRepoInfoRemoteYes.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes'**
+  String get settingsGitRepoInfoRemoteYes;
+
+  /// No description provided for @settingsGitRepoInfoRemoteNo.
+  ///
+  /// In en, this message translates to:
+  /// **'No'**
+  String get settingsGitRepoInfoRemoteNo;
+
+  /// No description provided for @settingsGitRepoInfoRemoteUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Remote URL'**
+  String get settingsGitRepoInfoRemoteUrl;
+
+  /// No description provided for @settingsGitRepoInfoPendingChanges.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending Changes'**
+  String get settingsGitRepoInfoPendingChanges;
+
+  /// No description provided for @settingsGitAuthor.
+  ///
   /// In en, this message translates to:
   /// **'Git Author Settings'**
   String get settingsGitAuthor;

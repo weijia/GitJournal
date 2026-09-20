@@ -261,6 +261,33 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsDisplayLang => 'Language';
 
   @override
+  String get settingsGitRepoInfo => 'Git 仓库信息';
+
+  @override
+  String get settingsGitRepoInfoId => '仓库 ID';
+
+  @override
+  String get settingsGitRepoInfoBranch => '当前分支';
+
+  @override
+  String get settingsGitRepoInfoPath => '仓库路径';
+
+  @override
+  String get settingsGitRepoInfoRemoteConfigured => '远程仓库已配置';
+
+  @override
+  String get settingsGitRepoInfoRemoteYes => '是';
+
+  @override
+  String get settingsGitRepoInfoRemoteNo => '否';
+
+  @override
+  String get settingsGitRepoInfoRemoteUrl => '远程地址';
+
+  @override
+  String get settingsGitRepoInfoPendingChanges => '待提交更改';
+
+  @override
   String get settingsGitAuthor => 'Git Author Settings';
 
   @override
@@ -1749,6 +1776,33 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get settingsDisplayLang => 'Language';
 
   @override
+  String get settingsGitRepoInfo => 'Git 仓库信息';
+
+  @override
+  String get settingsGitRepoInfoId => '仓库 ID';
+
+  @override
+  String get settingsGitRepoInfoBranch => '当前分支';
+
+  @override
+  String get settingsGitRepoInfoPath => '仓库路径';
+
+  @override
+  String get settingsGitRepoInfoRemoteConfigured => '远程仓库已配置';
+
+  @override
+  String get settingsGitRepoInfoRemoteYes => '是';
+
+  @override
+  String get settingsGitRepoInfoRemoteNo => '否';
+
+  @override
+  String get settingsGitRepoInfoRemoteUrl => '远程地址';
+
+  @override
+  String get settingsGitRepoInfoPendingChanges => '待提交更改';
+
+  @override
   String get settingsGitAuthor => 'Git Author Settings';
 
   @override
@@ -3191,6 +3245,33 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get settingsDisplayLang => 'Language';
+
+  @override
+  String get settingsGitRepoInfo => 'Git 仓库信息';
+
+  @override
+  String get settingsGitRepoInfoId => '仓库 ID';
+
+  @override
+  String get settingsGitRepoInfoBranch => '当前分支';
+
+  @override
+  String get settingsGitRepoInfoPath => '仓库路径';
+
+  @override
+  String get settingsGitRepoInfoRemoteConfigured => '远程仓库已配置';
+
+  @override
+  String get settingsGitRepoInfoRemoteYes => '是';
+
+  @override
+  String get settingsGitRepoInfoRemoteNo => '否';
+
+  @override
+  String get settingsGitRepoInfoRemoteUrl => '远程地址';
+
+  @override
+  String get settingsGitRepoInfoPendingChanges => '待提交更改';
 
   @override
   String get settingsGitAuthor => 'Git Author Settings';

@@ -261,6 +261,33 @@ class AppLocalizationsTa extends AppLocalizations {
   String get settingsDisplayLang => 'Language';
 
   @override
+  String get settingsGitRepoInfo => 'Git Repository Info';
+
+  @override
+  String get settingsGitRepoInfoId => 'Repository ID';
+
+  @override
+  String get settingsGitRepoInfoBranch => 'Current Branch';
+
+  @override
+  String get settingsGitRepoInfoPath => 'Repository Path';
+
+  @override
+  String get settingsGitRepoInfoRemoteConfigured => 'Remote Configured';
+
+  @override
+  String get settingsGitRepoInfoRemoteYes => 'Yes';
+
+  @override
+  String get settingsGitRepoInfoRemoteNo => 'No';
+
+  @override
+  String get settingsGitRepoInfoRemoteUrl => 'Remote URL';
+
+  @override
+  String get settingsGitRepoInfoPendingChanges => 'Pending Changes';
+
+  @override
   String get settingsGitAuthor => 'Git Author Settings';
 
   @override
