@@ -79,14 +79,16 @@ class AppRouter {
         route.startsWith(AppRoute.NewNotePrefix)) {
       return PageRouteBuilder(
         settings: routeSettings,
-        pageBuilder: (_, __, ___) => screenForRoute(
-          route,
-          repository,
-          storageConfig,
-          sharedText,
-          sharedImages,
-          callbackIfUsedShared,
-        )!,
+        pageBuilder: (_, __, ___) =>
+            screenForRoute(
+              route,
+              repository,
+              storageConfig,
+              sharedText,
+              sharedImages,
+              callbackIfUsedShared,
+            ) ??
+            const ErrorScreen(),
         transitionsBuilder: (_, anim, __, child) {
           return FadeTransition(opacity: anim, child: child);
         },
@@ -95,14 +97,16 @@ class AppRouter {
 
     return MaterialPageRoute(
       settings: routeSettings,
-      builder: (context) => screenForRoute(
-        route,
-        repository,
-        storageConfig,
-        sharedText,
-        sharedImages,
-        callbackIfUsedShared,
-      )!,
+      builder: (context) =>
+          screenForRoute(
+            route,
+            repository,
+            storageConfig,
+            sharedText,
+            sharedImages,
+            callbackIfUsedShared,
+          ) ??
+          const ErrorScreen(),
     );
   }
 
@@ -115,6 +119,7 @@ class AppRouter {
     Func0<void> callbackIfUsedShared,
   ) {
     switch (route) {
+      case '/':
       case HomeScreen.routePath:
         return HomeScreen();
       case FolderListingScreen.routePath:
