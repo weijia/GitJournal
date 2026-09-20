@@ -15,7 +15,14 @@ class HomeWidgetService {
   static const String _keyRepoId = 'repo_id';
   static const String _keyTitle = 'title';
   static const String _keySubtitle = 'subtitle';
+
+  /// Use the fully-qualified class name so it works even when the
+  /// applicationId has a suffix (e.g. '.dev' in debug builds).
+  /// home_widget's `androidName` prepends the runtime package name,
+  /// which breaks in debug – `qualifiedAndroidName` bypasses that.
   static const String _androidProviderName = 'RepoWidgetProvider';
+  static const String _qualifiedAndroidProviderName =
+      'io.gitjournal.gitjournal.RepoWidgetProvider';
 
   static Future<void> init() async {
     if (!Platform.isAndroid && !Platform.isIOS) {
@@ -87,7 +94,7 @@ class HomeWidgetService {
       );
       await HomeWidget.updateWidget(
         name: _androidProviderName,
-        androidName: _androidProviderName,
+        qualifiedAndroidName: _qualifiedAndroidProviderName,
         iOSName: _androidProviderName,
       );
       Log.i("Updated widget for repo: $repoId");
@@ -111,16 +118,28 @@ class HomeWidgetService {
       await HomeWidget.saveWidgetData<String>(_keyTitle, repoName);
       await HomeWidget.saveWidgetData<String>(_keySubtitle, 'Tap to open');
 
+      // Check if pinning is supported (Android < API 26 doesn't support it)
+      var supported = true;
+      try {
+        supported = await HomeWidget.isRequestPinWidgetSupported() ?? true;
+      } catch (_) {
+        // If the check fails, proceed anyway – the request will throw
+        // and be caught below.
+      }
+      if (!supported) {
+        Log.w("requestPinWidget not supported on this device");
+        return false;
+      }
+
       // Request to pin the widget
       await HomeWidget.requestPinWidget(
-        name: _androidProviderName,
-        androidName: _androidProviderName,
+        qualifiedAndroidName: _qualifiedAndroidProviderName,
       );
 
       // Update the widget immediately (in case there were existing widgets)
       await HomeWidget.updateWidget(
         name: _androidProviderName,
-        androidName: _androidProviderName,
+        qualifiedAndroidName: _qualifiedAndroidProviderName,
       );
 
       Log.i("Requested pin widget for repo: $repoId");
