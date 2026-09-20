@@ -29,6 +29,7 @@ import 'package:gitjournal/widgets/setup.dart';
 
 class AppRoute {
   static const NewNotePrefix = '/newNote/';
+  static const RepoPrefix = '/repo/';
 
   static const all = [
     OnBoardingScreen.routePath,
@@ -76,7 +77,8 @@ class AppRouter {
     var route = routeSettings.name ?? "";
     if (route == FolderListingScreen.routePath ||
         route == TagListingScreen.routePath ||
-        route.startsWith(AppRoute.NewNotePrefix)) {
+        route.startsWith(AppRoute.NewNotePrefix) ||
+        route.startsWith(AppRoute.RepoPrefix)) {
       return PageRouteBuilder(
         settings: routeSettings,
         pageBuilder: (_, __, ___) =>
@@ -177,7 +179,16 @@ class AppRouter {
       );
     }
 
-    assert(false, "Not found named route in screenForRoute");
+    // Deep link from home screen widget: gitjournal://repo/{repoId}
+    // Flutter converts the URI path into a route name like '/repo/{repoId}'.
+    // The actual repo switching is handled by HomeWidgetService in app.dart;
+    // here we just return the home screen so the user doesn't see an error.
+    if (route.startsWith(AppRoute.RepoPrefix)) {
+      Log.i("Deep link repo route: $route");
+      return HomeScreen();
+    }
+
+    assert(false, "Not found named route in screenForRoute: $route");
     return null;
   }
 }
