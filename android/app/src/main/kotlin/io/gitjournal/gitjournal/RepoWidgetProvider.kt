@@ -16,23 +16,41 @@ import es.antonborri.home_widget.HomeWidgetProvider
 
 class RepoWidgetProvider : HomeWidgetProvider() {
 
+    companion object {
+        private const val PREF_NAME = "HomeWidgetPreferences"
+
+        // Pending keys – written by Dart before requesting a pin.
+        // The next new widget claims these and stores them per-widget-ID.
+        private const val KEY_PENDING_REPO_ID = "pending_repo_id"
+        private const val KEY_PENDING_TITLE = "pending_title"
+        private const val KEY_PENDING_SUBTITLE = "pending_subtitle"
+
+        // Per-widget keys: widget_<id>_<field>
+        private fun widgetKey(id: Int, field: String) = "widget_${id}_$field"
+
+        // Per-repo keys (shared across all widgets bound to the same repo):
+        // repo_<repoId>_<field>
+        private fun repoKey(repoId: String, field: String) = "repo_${repoId}_$field"
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  Lifecycle
+    // ─────────────────────────────────────────────────────────────
+
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray,
         widgetData: SharedPreferences
     ) {
-        val title = widgetData.getString("title", null)
-            ?: context.getString(R.string.widget_repo_default_title)
-        val subtitle = widgetData.getString("subtitle", null)
-            ?: context.getString(R.string.widget_repo_default_subtitle)
-        val repoId = widgetData.getString("repo_id", null)
+        val editor = widgetData.edit()
+        for (appWidgetId in appWidgetIds) {
+            ensureBinding(appWidgetId, widgetData, editor)
+        }
+        editor.apply()
 
         for (appWidgetId in appWidgetIds) {
-            val views = buildRemoteViews(
-                context, appWidgetManager, appWidgetId,
-                title, subtitle, repoId
-            )
+            val views = buildRemoteViews(context, appWidgetId, widgetData)
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
     }
@@ -43,39 +61,94 @@ class RepoWidgetProvider : HomeWidgetProvider() {
         appWidgetId: Int,
         newOptions: android.os.Bundle
     ) {
-        val widgetData = context.getSharedPreferences(
-            "HomeWidgetPreferences", Context.MODE_PRIVATE
-        )
-        val title = widgetData.getString("title", null)
-            ?: context.getString(R.string.widget_repo_default_title)
-        val subtitle = widgetData.getString("subtitle", null)
-            ?: context.getString(R.string.widget_repo_default_subtitle)
-        val repoId = widgetData.getString("repo_id", null)
-
+        val widgetData = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
         val views = buildRemoteViews(
-            context, appWidgetManager, appWidgetId,
-            title, subtitle, repoId, options = newOptions
+            context, appWidgetId, widgetData, options = newOptions
         )
         appWidgetManager.updateAppWidget(appWidgetId, views)
     }
 
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        // Clean up per-widget keys when a widget is removed
+        val widgetData = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+        val editor = widgetData.edit()
+        for (id in appWidgetIds) {
+            editor.remove(widgetKey(id, "repo_id"))
+        }
+        editor.apply()
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  Binding logic
+    // ─────────────────────────────────────────────────────────────
+
+    /**
+     * If this widget ID doesn't have a repo binding yet, claim the
+     * "pending" data written by the Dart side before pinning.
+     */
+    private fun ensureBinding(
+        appWidgetId: Int,
+        widgetData: SharedPreferences,
+        editor: SharedPreferences.Editor
+    ) {
+        val boundRepoKey = widgetKey(appWidgetId, "repo_id")
+        if (widgetData.getString(boundRepoKey, null) != null) {
+            return // already bound
+        }
+
+        val pendingRepoId = widgetData.getString(KEY_PENDING_REPO_ID, null)
+        if (pendingRepoId != null) {
+            editor.putString(boundRepoKey, pendingRepoId)
+            // Also save per-repo title/subtitle if they came with the pending data
+            val pendingTitle = widgetData.getString(KEY_PENDING_TITLE, null)
+            val pendingSubtitle = widgetData.getString(KEY_PENDING_SUBTITLE, null)
+            if (pendingTitle != null) {
+                editor.putString(repoKey(pendingRepoId, "title"), pendingTitle)
+            }
+            if (pendingSubtitle != null) {
+                editor.putString(repoKey(pendingRepoId, "subtitle"), pendingSubtitle)
+            }
+            // Clear pending so the next new widget doesn't reuse it
+            editor.remove(KEY_PENDING_REPO_ID)
+            editor.remove(KEY_PENDING_TITLE)
+            editor.remove(KEY_PENDING_SUBTITLE)
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    //  View building
+    // ─────────────────────────────────────────────────────────────
+
     private fun buildRemoteViews(
         context: Context,
-        appWidgetManager: AppWidgetManager,
         appWidgetId: Int,
-        title: String,
-        subtitle: String,
-        repoId: String?,
+        widgetData: SharedPreferences,
         options: android.os.Bundle? = null
     ): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_repo)
 
-        // Title is always visible (shown below the icon at 1x1)
-        views.setTextViewText(R.id.widget_title, title)
+        // Read this widget's bound repoId
+        val repoId = widgetData.getString(widgetKey(appWidgetId, "repo_id"), null)
 
-        // Subtitle is hidden at 1x1, shown when widget is resized larger
+        // Title / subtitle come from per-repo keys (shared & updatable)
+        val title = if (repoId != null) {
+            widgetData.getString(repoKey(repoId, "title"), null)
+                ?: context.getString(R.string.widget_repo_default_title)
+        } else {
+            context.getString(R.string.widget_repo_default_title)
+        }
+
+        val subtitle = if (repoId != null) {
+            widgetData.getString(repoKey(repoId, "subtitle"), null)
+                ?: context.getString(R.string.widget_repo_default_subtitle)
+        } else {
+            context.getString(R.string.widget_repo_default_subtitle)
+        }
+
+        views.setTextViewText(R.id.widget_title, title)
         views.setTextViewText(R.id.widget_subtitle, subtitle)
 
+        // Subtitle visible only when widget is resized beyond ~2x2
         val showSubtitle = if (options != null) {
             val minWidth = options.getInt(
                 AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0
@@ -93,7 +166,7 @@ class RepoWidgetProvider : HomeWidgetProvider() {
             if (showSubtitle) android.view.View.VISIBLE else android.view.View.GONE
         )
 
-        // Set click intent
+        // Click intent – uses THIS widget's repoId
         val uri = if (repoId != null) {
             Uri.parse("gitjournal://repo/$repoId")
         } else {

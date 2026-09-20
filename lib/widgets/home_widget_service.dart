@@ -10,43 +10,47 @@ import 'package:gitjournal/logger/logger.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:universal_io/io.dart';
 
-/// Service for managing home screen widgets
+/// Service for managing home screen widgets.
+///
+/// Supports multiple widgets, each bound to a different git repo.
+/// The binding is done via a "pending" slot: before requesting a pin,
+/// Dart writes the repo data as pending; when Android calls onUpdate
+/// for the new widget, the Kotlin provider claims the pending data and
+/// stores it per-widget-ID.
 class HomeWidgetService {
-  static const String _keyRepoId = 'repo_id';
-  static const String _keyTitle = 'title';
-  static const String _keySubtitle = 'subtitle';
+  // ── Pending keys (written before pin, claimed by the new widget) ──
+  static const String _keyPendingRepoId = 'pending_repo_id';
+  static const String _keyPendingTitle = 'pending_title';
+  static const String _keyPendingSubtitle = 'pending_subtitle';
 
-  /// Use the fully-qualified class name so it works even when the
-  /// applicationId has a suffix (e.g. '.dev' in debug builds).
-  /// home_widget's `androidName` prepends the runtime package name,
-  /// which breaks in debug – `qualifiedAndroidName` bypasses that.
-  static const String _androidProviderName = 'RepoWidgetProvider';
+  // ── Per-repo keys (shared by all widgets of the same repo) ──
+  static String _repoTitleKey(String repoId) => 'repo_${repoId}_title';
+  static String _repoSubtitleKey(String repoId) => 'repo_${repoId}_subtitle';
+
+  /// Fully-qualified Android provider class name (works in debug & release).
   static const String _qualifiedAndroidProviderName =
       'io.gitjournal.gitjournal.RepoWidgetProvider';
+
+  // ─────────────────────────────────────────────────────────────
+  //  Deep-link handling
+  // ─────────────────────────────────────────────────────────────
 
   static Future<void> init() async {
     if (!Platform.isAndroid && !Platform.isIOS) {
       return;
     }
-
-    try {
-      // Register interactivity callback for background widget actions
-      // (not used for simple launch, but required for interactive widgets)
-    } catch (e) {
-      Log.e("Failed to initialize widget service", ex: e);
-    }
+    // No special registration needed – HomeWidget.widgetClicked
+    // stream is set up by the package.
   }
 
-  /// Check if app was launched from a widget and return the repo ID
+  /// Returns the repo ID if the app was launched from a widget tap.
   static Future<String?> getInitialWidgetRepoId() async {
     if (!Platform.isAndroid && !Platform.isIOS) {
       return null;
     }
-
     try {
       final uri = await HomeWidget.initiallyLaunchedFromHomeWidget();
       Log.i("Initial widget launch URI: $uri");
-
       if (uri != null &&
           uri.scheme == 'gitjournal' &&
           uri.host == 'repo' &&
@@ -60,12 +64,12 @@ class HomeWidgetService {
     }
   }
 
-  /// Stream of widget click events received while app is running
+  /// Stream of repo IDs when the user taps a widget while the app
+  /// is already running.
   static Stream<String> get widgetRepoIdStream {
     if (!Platform.isAndroid && !Platform.isIOS) {
       return const Stream.empty();
     }
-
     return HomeWidget.widgetClicked
         .where((uri) =>
             uri != null &&
@@ -75,7 +79,13 @@ class HomeWidgetService {
         .map((uri) => uri!.pathSegments.first);
   }
 
-  /// Update the widget with repo info
+  // ─────────────────────────────────────────────────────────────
+  //  Widget management
+  // ─────────────────────────────────────────────────────────────
+
+  /// Update the display data for a repo. This refreshes ALL widgets
+  /// on the home screen – each widget reads its own bound repoId and
+  /// then looks up the title/subtitle from the per-repo keys.
   static Future<void> updateRepoWidget({
     required String repoId,
     required String title,
@@ -84,26 +94,31 @@ class HomeWidgetService {
     if (!Platform.isAndroid && !Platform.isIOS) {
       return;
     }
-
     try {
-      await HomeWidget.saveWidgetData<String>(_keyRepoId, repoId);
-      await HomeWidget.saveWidgetData<String>(_keyTitle, title);
+      // Write per-repo data (shared by all widgets of this repo)
       await HomeWidget.saveWidgetData<String>(
-        _keySubtitle,
-        subtitle ?? 'Tap to open',
+        _repoTitleKey(repoId), title,
       );
+      await HomeWidget.saveWidgetData<String>(
+        _repoSubtitleKey(repoId), subtitle ?? 'Tap to open',
+      );
+
+      // Trigger onUpdate on all widgets – each will read its own data
       await HomeWidget.updateWidget(
-        name: _androidProviderName,
         qualifiedAndroidName: _qualifiedAndroidProviderName,
-        iOSName: _androidProviderName,
       );
-      Log.i("Updated widget for repo: $repoId");
+      Log.i("Updated repo widget data for: $repoId");
     } catch (e) {
       Log.e("Failed to update widget", ex: e);
     }
   }
 
-  /// Request to pin a repo widget on the home screen
+  /// Request to pin a new widget for [repoId] on the home screen.
+  ///
+  /// The repo data is saved as "pending". When Android calls onUpdate
+  /// for the newly placed widget, the Kotlin provider claims the
+  /// pending data and binds it to that widget's ID. This allows
+  /// multiple widgets, each pointing to a different repo.
   static Future<bool> requestPinRepoWidget({
     required String repoId,
     required String repoName,
@@ -111,34 +126,36 @@ class HomeWidgetService {
     if (!Platform.isAndroid && !Platform.isIOS) {
       return false;
     }
-
     try {
-      // First save the data so the widget has content when it appears
-      await HomeWidget.saveWidgetData<String>(_keyRepoId, repoId);
-      await HomeWidget.saveWidgetData<String>(_keyTitle, repoName);
-      await HomeWidget.saveWidgetData<String>(_keySubtitle, 'Tap to open');
+      // Save as pending – will be claimed by the next new widget
+      await HomeWidget.saveWidgetData<String>(_keyPendingRepoId, repoId);
+      await HomeWidget.saveWidgetData<String>(_keyPendingTitle, repoName);
+      await HomeWidget.saveWidgetData<String>(
+        _keyPendingSubtitle, 'Tap to open',
+      );
 
-      // Check if pinning is supported (Android < API 26 doesn't support it)
+      // Also write per-repo data so existing widgets of this repo
+      // (if any) get the latest title/subtitle
+      await HomeWidget.saveWidgetData<String>(
+        _repoTitleKey(repoId), repoName,
+      );
+      await HomeWidget.saveWidgetData<String>(
+        _repoSubtitleKey(repoId), 'Tap to open',
+      );
+
+      // Check if pinning is supported (Android < API 26)
       var supported = true;
       try {
         supported = await HomeWidget.isRequestPinWidgetSupported() ?? true;
-      } catch (_) {
-        // If the check fails, proceed anyway – the request will throw
-        // and be caught below.
-      }
+      } catch (_) {}
       if (!supported) {
         Log.w("requestPinWidget not supported on this device");
         return false;
       }
 
-      // Request to pin the widget
+      // Request to pin – Android shows the pin dialog; on confirm,
+      // onUpdate fires and the new widget claims the pending data.
       await HomeWidget.requestPinWidget(
-        qualifiedAndroidName: _qualifiedAndroidProviderName,
-      );
-
-      // Update the widget immediately (in case there were existing widgets)
-      await HomeWidget.updateWidget(
-        name: _androidProviderName,
         qualifiedAndroidName: _qualifiedAndroidProviderName,
       );
 
