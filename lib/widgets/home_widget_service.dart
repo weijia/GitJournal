@@ -71,6 +71,9 @@ class HomeWidgetService {
       return const Stream.empty();
     }
     return HomeWidget.widgetClicked
+        .handleError((e, st) {
+          Log.e("widgetClicked stream error", ex: e, stacktrace: st);
+        })
         .where((uri) =>
             uri != null &&
             uri.scheme == 'gitjournal' &&

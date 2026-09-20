@@ -24,6 +24,7 @@ import 'package:gitjournal/settings/app_config.dart';
 import 'package:gitjournal/settings/settings.dart';
 import 'package:gitjournal/settings/storage_config.dart';
 import 'package:gitjournal/themes.dart';
+import 'package:gitjournal/widgets/error_display.dart';
 import 'package:gitjournal/widgets/home_widget_service.dart';
 import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
@@ -277,20 +278,25 @@ class JournalAppState extends State<JournalApp> with WidgetsBindingObserver {
     });
   }
 
-  void _switchToRepo(String repoId) {
+  void _switchToRepo(String repoId) async {
     var repoManager = context.read<RepositoryManager>();
     if (!repoManager.repoIds.contains(repoId)) {
-      Log.e("Repo not found: $repoId");
+      Log.e("Widget: repo not found: $repoId (available: ${repoManager.repoIds})");
       return;
     }
 
     if (repoManager.currentId == repoId) {
-      Log.i("Already on repo: $repoId");
+      Log.i("Widget: already on repo: $repoId");
       return;
     }
 
-    Log.i("Switching to repo from widget: $repoId");
-    repoManager.setCurrentRepo(repoId);
+    Log.i("Widget: switching to repo $repoId from ${repoManager.currentId}");
+    try {
+      await repoManager.setCurrentRepo(repoId);
+      Log.i("Widget: successfully switched to repo $repoId");
+    } catch (e, st) {
+      Log.e("Widget: failed to switch to repo $repoId", ex: e, stacktrace: st);
+    }
   }
 
   @override
@@ -315,7 +321,20 @@ class JournalAppState extends State<JournalApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    try {
+      return _buildApp(context);
+    } catch (e, st) {
+      Log.e("JournalApp build error", ex: e, stacktrace: st);
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: ErrorDisplay(error: e, stackTrace: st),
+      );
+    }
+  }
+
+  Widget _buildApp(BuildContext context) {
     var repo = widget.repoManager.currentRepo;
+    Log.d("JournalApp.build: repo=${repo?.id}, repoError=${widget.repoManager.currentRepoError}");
 
     // Repository.load can be quite slow, especially because of the 'git commit'
     // on booting
