@@ -305,15 +305,12 @@ class JournalAppState extends State<JournalApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    if (state == AppLifecycleState.resumed) {
-      // Check if we were resumed from a widget click
-      HomeWidgetService.getInitialWidgetRepoId().then((repoId) {
-        if (repoId != null && repoId.isNotEmpty) {
-          Log.i("App resumed with widget repoId: $repoId");
-          _switchToRepo(repoId);
-        }
-      });
-    }
+    // Widget clicks while the app is running are handled by
+    // widgetRepoIdStream (set up in _initWidgetHandling).
+    // We do NOT call getInitialWidgetRepoId() here because on Android
+    // the launch intent persists across resumes, which would cause
+    // _switchToRepo → buildActiveRepository → _repo = null → grey screen
+    // on every app resume.
   }
 
   @override
@@ -327,7 +324,16 @@ class JournalAppState extends State<JournalApp> with WidgetsBindingObserver {
     try {
       settings = context.watch<Settings>();
     } catch (_) {
-      return const SizedBox();
+      // Settings is unavailable while repo is (re)loading.
+      // Show a loading indicator instead of a blank screen.
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
     }
 
     // FIXME: Settings can be null in this case!
