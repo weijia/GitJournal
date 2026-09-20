@@ -4,8 +4,12 @@ SPDX-FileCopyrightText: 2019-2021 Vishesh Handa <me@vhanda.in>
 SPDX-License-Identifier: Apache-2.0
 -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="180dp"
-    android:minHeight="80dp"
+    android:minWidth="40dp"
+    android:minHeight="40dp"
+    android:targetCellWidth="1"
+    android:targetCellHeight="1"
+    android:maxResizeWidth="250dp"
+    android:maxResizeHeight="120dp"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/widget_repo"
     android:resizeMode="horizontal|vertical"
