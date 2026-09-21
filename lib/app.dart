@@ -6,6 +6,7 @@
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:gitjournal/analytics/analytics.dart';
 import 'package:gitjournal/analytics/route_observer.dart';
@@ -517,8 +518,13 @@ class JournalAppState extends State<JournalApp> with WidgetsBindingObserver {
         return r;
       },
         // Wrap every route with a visible debug overlay so we can see
-        // navigation events on-screen during widget testing.
-        builder: (context, child) => DebugOverlay(child: child ?? const SizedBox.shrink()),
+        // navigation events on-screen during development. Only shown in
+        // debug builds.
+        builder: (context, child) {
+          final content = child ?? const SizedBox.shrink();
+          if (!kDebugMode) return content;
+          return DebugOverlay(child: content);
+        },
     );
   }
 }

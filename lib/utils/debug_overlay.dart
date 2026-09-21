@@ -7,11 +7,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gitjournal/utils/debug_nav_observer.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// A floating debug overlay that shows recent navigation events.
-/// Only visible in debug builds.
+/// A floating, draggable debug overlay that shows recent navigation events.
+///
+/// Only meant to be shown in debug builds (the caller in app.dart guards it
+/// with kDebugMode).
 ///
 /// Features:
+///  - Drag the panel anywhere on screen to avoid blocking UI controls.
+///  - The position is persisted to SharedPreferences across app restarts.
 ///  - Tap the collapsed bar to expand the log panel.
 ///  - The panel can be dismissed entirely (hidden) via the close button.
 ///  - When hidden, a small floating bug icon lets you bring it back.
@@ -26,16 +31,78 @@ class DebugOverlay extends StatefulWidget {
 }
 
 class _DebugOverlayState extends State<DebugOverlay> {
+  static const String _prefKeyX = 'debug_overlay_x';
+  static const String _prefKeyY = 'debug_overlay_y';
+
   bool _expanded = true;
   bool _visible = true;
+
+  // Position of the panel's top-left corner.
+  Offset _position = Offset.zero;
+  bool _positionLoaded = false;
+
+  // Size of the panel (used for clamping during drag).
+  final Size _collapsedSize = const Size(220, 36);
+  final Size _expandedSize = const Size(320, 300);
+  final Size _reopenSize = const Size(36, 36);
 
   @override
   void initState() {
     super.initState();
+    _loadPosition();
     // Refresh periodically so new log entries show up
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) setState(() {});
     });
+  }
+
+  Future<void> _loadPosition() async {
+    try {
+      final pref = await SharedPreferences.getInstance();
+      final x = pref.getDouble(_prefKeyX);
+      final y = pref.getDouble(_prefKeyY);
+      if (x != null && y != null) {
+        if (mounted) {
+          setState(() {
+            _position = Offset(x, y);
+            _positionLoaded = true;
+          });
+        }
+        return;
+      }
+    } catch (_) {
+      // ignore: fall through to default
+    }
+    if (mounted) {
+      setState(() {
+        _positionLoaded = true;
+      });
+    }
+  }
+
+  Future<void> _savePosition() async {
+    try {
+      final pref = await SharedPreferences.getInstance();
+      await pref.setDouble(_prefKeyX, _position.dx);
+      await pref.setDouble(_prefKeyY, _position.dy);
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  Offset _defaultPosition(Size size, Size screen) {
+    // Default: top-right corner, below the status bar / AppBar.
+    return Offset(
+      (screen.width - size.width).clamp(0.0, double.infinity),
+      56.0, // below typical AppBar height
+    );
+  }
+
+  /// Clamp [pos] so the panel stays on screen.
+  Offset _clamp(Offset pos, Size size, Size screen) {
+    final dx = pos.dx.clamp(0.0, (screen.width - size.width).clamp(0.0, double.infinity));
+    final dy = pos.dy.clamp(0.0, (screen.height - size.height).clamp(0.0, double.infinity));
+    return Offset(dx, dy);
   }
 
   void _refresh() {
@@ -57,19 +124,50 @@ class _DebugOverlayState extends State<DebugOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    // Always show the child
+    final screen = MediaQuery.of(context).size;
+    final size = _currentSize;
+
+    // Use the default position until we've loaded the saved one.
+    final pos = _positionLoaded ? _position : _defaultPosition(size, screen);
+    final clamped = _clamp(pos, size, screen);
+
     return Stack(
       children: [
         widget.child,
-        if (_visible) _buildOverlay() else _buildReopenButton(),
+        Positioned(
+          left: clamped.dx,
+          top: clamped.dy,
+          child: _visible ? _buildPanel(size) : _buildReopenButton(),
+        ),
       ],
     );
   }
 
+  Size get _currentSize {
+    if (!_visible) return _reopenSize;
+    return _expanded ? _expandedSize : _collapsedSize;
+  }
+
+  Widget _buildDraggable({required Widget child}) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onPanUpdate: (details) {
+        setState(() {
+          final screen = MediaQuery.of(context).size;
+          _position = _clamp(
+            _position + details.delta,
+            _currentSize,
+            screen,
+          );
+        });
+      },
+      onPanEnd: (_) => _savePosition(),
+      child: child,
+    );
+  }
+
   Widget _buildReopenButton() {
-    return Positioned(
-      top: MediaQuery.of(context).padding.top + 4,
-      left: 4,
+    return _buildDraggable(
       child: GestureDetector(
         onTap: () {
           setState(() {
@@ -78,23 +176,21 @@ class _DebugOverlayState extends State<DebugOverlay> {
           });
         },
         child: Container(
-          padding: const EdgeInsets.all(6),
+          width: _reopenSize.width,
+          height: _reopenSize.height,
           decoration: BoxDecoration(
             color: Colors.black87.withValues(alpha: 0.85),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.orange, width: 1),
           ),
-          child: const Icon(Icons.bug_report, color: Colors.orange, size: 18),
+          child: const Icon(Icons.bug_report, color: Colors.orange, size: 20),
         ),
       ),
     );
   }
 
-  Widget _buildOverlay() {
-    return Positioned(
-      top: MediaQuery.of(context).padding.top + 4,
-      left: 4,
-      right: 4,
+  Widget _buildPanel(Size size) {
+    return _buildDraggable(
       child: GestureDetector(
         onTap: () {
           setState(() {
@@ -103,14 +199,13 @@ class _DebugOverlayState extends State<DebugOverlay> {
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
+          width: size.width,
+          height: size.height,
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.black87.withValues(alpha: 0.85),
+            color: Colors.black87.withValues(alpha: 0.9),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.orange, width: 1),
-          ),
-          constraints: BoxConstraints(
-            maxHeight: _expanded ? 300 : 32,
           ),
           child: _expanded ? _buildExpanded() : _buildCollapsed(),
         ),
@@ -163,14 +258,12 @@ class _DebugOverlayState extends State<DebugOverlay> {
             const Spacer(),
             GestureDetector(
               onTap: _copyAll,
-              child: const Icon(Icons.copy_all,
-                  color: Colors.white54, size: 16),
+              child: const Icon(Icons.copy_all, color: Colors.white54, size: 16),
             ),
             const SizedBox(width: 8),
             GestureDetector(
               onTap: _refresh,
-              child: const Icon(Icons.refresh,
-                  color: Colors.white54, size: 16),
+              child: const Icon(Icons.refresh, color: Colors.white54, size: 16),
             ),
             const SizedBox(width: 8),
             GestureDetector(
@@ -179,8 +272,7 @@ class _DebugOverlayState extends State<DebugOverlay> {
                   _expanded = false;
                 });
               },
-              child: const Icon(Icons.expand_less,
-                  color: Colors.white54, size: 16),
+              child: const Icon(Icons.expand_less, color: Colors.white54, size: 16),
             ),
             const SizedBox(width: 8),
             GestureDetector(
@@ -189,8 +281,7 @@ class _DebugOverlayState extends State<DebugOverlay> {
                   _visible = false;
                 });
               },
-              child: const Icon(Icons.close,
-                  color: Colors.white54, size: 16),
+              child: const Icon(Icons.close, color: Colors.white54, size: 16),
             ),
           ],
         ),
