@@ -24,6 +24,8 @@ import 'package:gitjournal/settings/app_config.dart';
 import 'package:gitjournal/settings/settings.dart';
 import 'package:gitjournal/settings/storage_config.dart';
 import 'package:gitjournal/themes.dart';
+import 'package:gitjournal/utils/debug_nav_observer.dart';
+import 'package:gitjournal/utils/debug_overlay.dart';
 import 'package:gitjournal/widgets/error_display.dart';
 import 'package:gitjournal/widgets/home_widget_service.dart';
 import 'package:hive/hive.dart';
@@ -260,22 +262,29 @@ class JournalAppState extends State<JournalApp> with WidgetsBindingObserver {
     }
 
     HomeWidgetService.init();
+    Log.i("Widget: _initWidgetHandling called");
 
     // Check if app was launched from a widget
     HomeWidgetService.getInitialWidgetRepoId().then((repoId) {
+      Log.i("Widget: getInitialWidgetRepoId returned: $repoId");
       if (repoId != null && repoId.isNotEmpty) {
-        Log.i("App launched from widget with repoId: $repoId");
+        Log.i("Widget: app launched from widget, repoId=$repoId, setting _pendingRepoId");
         _pendingRepoId = repoId;
         WidgetsBinding.instance
             .addPostFrameCallback((_) => _afterBuild(context));
+      } else {
+        Log.i("Widget: app NOT launched from widget (repoId is null/empty)");
       }
+    }).catchError((e) {
+      Log.e("Widget: getInitialWidgetRepoId error", ex: e);
     });
 
     // Listen for widget clicks while app is running
     _widgetClickSubscription = HomeWidgetService.widgetRepoIdStream.listen((repoId) {
-      Log.i("Widget clicked - repoId: $repoId");
+      Log.i("Widget: widgetRepoIdStream received repoId: $repoId");
       _switchToRepo(repoId);
     });
+    Log.i("Widget: _initWidgetHandling done, stream subscription set up");
   }
 
   void _switchToRepo(String repoId) async {
@@ -310,6 +319,7 @@ class JournalAppState extends State<JournalApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
+    Log.i("AppLifecycle: $state");
 
     // Widget clicks while the app is running are handled by
     // widgetRepoIdStream (set up in _initWidgetHandling).
@@ -422,12 +432,21 @@ class JournalAppState extends State<JournalApp> with WidgetsBindingObserver {
       navigatorObservers: <NavigatorObserver>[
         AnalyticsRouteObserver(),
         SentryNavigatorObserver(),
+        DebugNavigatorObserver.instance,
       ],
       initialRoute: initialRoute,
       debugShowCheckedModeBanner: false,
       //debugShowMaterialGrid: true,
       onGenerateRoute: (rs) {
         var routeName = rs.name ?? "";
+
+        // Log EVERY route request at the very start
+        DebugNavigatorObserver.instance.logRouteRequest(routeName);
+        Log.i("onGenerateRoute: routeName='$routeName' (len=${routeName.length}, "
+            "bytes=${routeName.codeUnits.take(40).toList()})");
+        Log.i("  router=${router != null}, repo=${repo?.id}, "
+            "matchesRepoPrefix=${routeName.startsWith(AppRoute.RepoPrefix)}, "
+            "matchesDeepLink=${routeName.startsWith(AppRoute.RepoDeepLinkPrefix)}");
 
         // Intercept deep-link routes pushed by Flutter's engine when
         // the app is launched from a home-screen widget (warm start).
@@ -438,7 +457,7 @@ class JournalAppState extends State<JournalApp> with WidgetsBindingObserver {
         // removes itself immediately.
         if (routeName.startsWith(AppRoute.RepoDeepLinkPrefix) ||
             routeName.startsWith(AppRoute.RepoPrefix)) {
-          Log.i("Intercepted widget deep-link route: $routeName");
+          Log.i("  -> INTERCEPTED as widget deep-link, returning _AutoRemoveRoute");
           return PageRouteBuilder(
             settings: rs,
             opaque: false,
@@ -448,6 +467,8 @@ class JournalAppState extends State<JournalApp> with WidgetsBindingObserver {
         }
 
         if (router == null || repo == null) {
+          Log.w("  -> router or repo is NULL, returning ErrorScreen. "
+              "router=$router, repo=${repo?.id}");
           return MaterialPageRoute(
             settings: rs,
             builder: (context) => const ErrorScreen(),
@@ -459,8 +480,12 @@ class JournalAppState extends State<JournalApp> with WidgetsBindingObserver {
           _sharedImages = [];
         });
 
+        Log.i("  -> generated route: ${r.runtimeType}");
         return r;
       },
+        // Wrap every route with a visible debug overlay so we can see
+        // navigation events on-screen during widget testing.
+        builder: (context, child) => DebugOverlay(child: child ?? const SizedBox.shrink()),
     );
   }
 }
