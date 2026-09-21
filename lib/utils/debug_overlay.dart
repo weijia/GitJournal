@@ -5,7 +5,6 @@
  */
 
 import 'package:flutter/material.dart';
-import 'package:gitjournal/utils/debug_nav_observer.dart';
 
 /// A wrapper that was previously a floating debug overlay.
 /// The overlay panel is now hidden, but the widget is kept so that
