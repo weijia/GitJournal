@@ -449,19 +449,51 @@ class JournalAppState extends State<JournalApp> with WidgetsBindingObserver {
             "matchesDeepLink=${routeName.startsWith(AppRoute.RepoDeepLinkPrefix)}");
 
         // Intercept deep-link routes pushed by Flutter's engine when
-        // the app is launched from a home-screen widget (warm start).
-        // The engine calls pushRoute("gitjournal://repo/{repoId}"), which
-        // would otherwise fall through to ErrorScreen.  The actual repo
-        // switching is handled by HomeWidgetService.widgetRepoIdStream in
-        // _initWidgetHandling, so we return a transparent route that
-        // removes itself immediately.
-        if (routeName.startsWith(AppRoute.RepoDeepLinkPrefix) ||
-            routeName.startsWith(AppRoute.RepoPrefix)) {
-          Log.i("  -> INTERCEPTED as widget deep-link, returning _AutoRemoveRoute");
+        // the app is launched from a home-screen widget.
+        //
+        // The home_widget package creates a PendingIntent with
+        // Uri.parse("gitjournal://repo/{repoId}").  Flutter's engine
+        // extracts the *path* from the URI and pushes it as a route.
+        // So the actual route name can be any of:
+        //   "/repo/{repoId}"          (path from gitjournal://repo/{repoId})
+        //   "gitjournal://repo/{repoId}" (full URI in some Flutter versions)
+        //   "/{repoId}"               (path-only form, the most common)
+        //
+        // We detect all three forms and also check if the path segment
+        // matches a known repo ID.  The actual repo switching is handled
+        // by HomeWidgetService.widgetRepoIdStream, so we return a
+        // transparent route that removes itself immediately.
+        var isWidgetDeepLink = false;
+        var deepLinkRepoId = <String>[];
+
+        if (routeName.startsWith(AppRoute.RepoDeepLinkPrefix)) {
+          // "gitjournal://repo/{repoId}"
+          isWidgetDeepLink = true;
+          deepLinkRepoId.add(routeName.substring(AppRoute.RepoDeepLinkPrefix.length));
+        } else if (routeName.startsWith(AppRoute.RepoPrefix)) {
+          // "/repo/{repoId}"
+          isWidgetDeepLink = true;
+          deepLinkRepoId.add(routeName.substring(AppRoute.RepoPrefix.length));
+        } else if (routeName.length > 1 && routeName.startsWith('/')) {
+          // "/{repoId}" — check if the segment after '/' is a known repo ID
+          var segment = routeName.substring(1);
+          if (widget.repoManager.repoIds.contains(segment)) {
+            isWidgetDeepLink = true;
+            deepLinkRepoId.add(segment);
+          }
+        }
+
+        if (isWidgetDeepLink) {
+          var repoId = deepLinkRepoId.first;
+          Log.i("  -> INTERCEPTED as widget deep-link (repoId=$repoId), "
+              "returning _AutoRemoveRoute with repo switch");
           return PageRouteBuilder(
             settings: rs,
             opaque: false,
-            pageBuilder: (_, __, ___) => const _AutoRemoveRoute(),
+            pageBuilder: (_, __, ___) => _AutoRemoveRoute(
+              repoId: repoId,
+              repoManager: widget.repoManager,
+            ),
             transitionsBuilder: (_, __, ___, child) => child,
           );
         }
@@ -491,12 +523,19 @@ class JournalAppState extends State<JournalApp> with WidgetsBindingObserver {
 }
 
 /// A transparent widget that removes its own route from the Navigator
-/// in the next frame.  Used to "absorb" deep-link routes pushed by
-/// Flutter's engine when the app is launched from a home-screen widget
-/// (warm start).  The actual repo switching is handled separately by
-/// [HomeWidgetService.widgetRepoIdStream].
+/// in the next frame and switches to the specified repo.  Used to
+/// "absorb" deep-link routes pushed by Flutter's engine when the app
+/// is launched from a home-screen widget.  The actual repo switching
+/// happens here as a fallback in case [HomeWidgetService.widgetRepoIdStream]
+/// doesn't fire or fires too late.
 class _AutoRemoveRoute extends StatefulWidget {
-  const _AutoRemoveRoute();
+  final String repoId;
+  final RepositoryManager repoManager;
+
+  const _AutoRemoveRoute({
+    required this.repoId,
+    required this.repoManager,
+  });
 
   @override
   State<_AutoRemoveRoute> createState() => _AutoRemoveRouteState();
@@ -506,13 +545,43 @@ class _AutoRemoveRouteState extends State<_AutoRemoveRoute> {
   @override
   void initState() {
     super.initState();
+    Log.i("_AutoRemoveRoute: initState, repoId=${widget.repoId}");
+
+    // Switch repo immediately (non-blocking for the UI)
+    _switchRepo();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final route = ModalRoute.of(context);
       if (route != null) {
         Navigator.of(context).removeRoute(route);
+        Log.i("_AutoRemoveRoute: removed itself from Navigator");
       }
     });
+  }
+
+  Future<void> _switchRepo() async {
+    var repoId = widget.repoId;
+    var repoManager = widget.repoManager;
+
+    if (!repoManager.repoIds.contains(repoId)) {
+      Log.e("_AutoRemoveRoute: repo not found: $repoId "
+          "(available: ${repoManager.repoIds})");
+      return;
+    }
+
+    if (repoManager.currentId == repoId) {
+      Log.i("_AutoRemoveRoute: already on repo $repoId, no switch needed");
+      return;
+    }
+
+    Log.i("_AutoRemoveRoute: switching from ${repoManager.currentId} to $repoId");
+    try {
+      await repoManager.setCurrentRepo(repoId);
+      Log.i("_AutoRemoveRoute: successfully switched to $repoId");
+    } catch (e, st) {
+      Log.e("_AutoRemoveRoute: failed to switch to $repoId", ex: e, stacktrace: st);
+    }
   }
 
   @override
