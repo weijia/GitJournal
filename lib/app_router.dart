@@ -31,6 +31,11 @@ class AppRoute {
   static const NewNotePrefix = '/newNote/';
   static const RepoPrefix = '/repo/';
 
+  /// Full URI prefix used by Flutter's engine when it pushes a deep-link
+  /// route via the NavigationChannel (e.g. on warm-start from a widget tap).
+  /// e.g. "gitjournal://repo/abc123"
+  static const RepoDeepLinkPrefix = 'gitjournal://repo/';
+
   static const all = [
     OnBoardingScreen.routePath,
     FolderListingScreen.routePath,
@@ -78,7 +83,8 @@ class AppRouter {
     if (route == FolderListingScreen.routePath ||
         route == TagListingScreen.routePath ||
         route.startsWith(AppRoute.NewNotePrefix) ||
-        route.startsWith(AppRoute.RepoPrefix)) {
+        route.startsWith(AppRoute.RepoPrefix) ||
+        route.startsWith(AppRoute.RepoDeepLinkPrefix)) {
       return PageRouteBuilder(
         settings: routeSettings,
         pageBuilder: (_, __, ___) =>
@@ -180,10 +186,13 @@ class AppRouter {
     }
 
     // Deep link from home screen widget: gitjournal://repo/{repoId}
-    // Flutter converts the URI path into a route name like '/repo/{repoId}'.
+    // Flutter's engine can push this as a route in two forms:
+    // 1. "/repo/{repoId}" – URI path used as initialRoute (cold start)
+    // 2. "gitjournal://repo/{repoId}" – full URI pushed via pushRoute (warm start)
     // The actual repo switching is handled by HomeWidgetService in app.dart;
     // here we just return the home screen so the user doesn't see an error.
-    if (route.startsWith(AppRoute.RepoPrefix)) {
+    if (route.startsWith(AppRoute.RepoPrefix) ||
+        route.startsWith(AppRoute.RepoDeepLinkPrefix)) {
       Log.i("Deep link repo route: $route");
       return HomeScreen();
     }

@@ -375,6 +375,7 @@ class JournalAppState extends State<JournalApp> with WidgetsBindingObserver {
     }
     var initialRoute =
         router != null ? router.initialRoute() : ErrorScreen.routePath;
+    Log.i("JournalApp: initialRoute=$initialRoute, repo=${repo?.id}, router=${router != null}");
 
     /*
 
@@ -426,6 +427,26 @@ class JournalAppState extends State<JournalApp> with WidgetsBindingObserver {
       debugShowCheckedModeBanner: false,
       //debugShowMaterialGrid: true,
       onGenerateRoute: (rs) {
+        var routeName = rs.name ?? "";
+
+        // Intercept deep-link routes pushed by Flutter's engine when
+        // the app is launched from a home-screen widget (warm start).
+        // The engine calls pushRoute("gitjournal://repo/{repoId}"), which
+        // would otherwise fall through to ErrorScreen.  The actual repo
+        // switching is handled by HomeWidgetService.widgetRepoIdStream in
+        // _initWidgetHandling, so we return a transparent route that
+        // removes itself immediately.
+        if (routeName.startsWith(AppRoute.RepoDeepLinkPrefix) ||
+            routeName.startsWith(AppRoute.RepoPrefix)) {
+          Log.i("Intercepted widget deep-link route: $routeName");
+          return PageRouteBuilder(
+            settings: rs,
+            opaque: false,
+            pageBuilder: (_, __, ___) => const _AutoRemoveRoute(),
+            transitionsBuilder: (_, __, ___, child) => child,
+          );
+        }
+
         if (router == null || repo == null) {
           return MaterialPageRoute(
             settings: rs,
@@ -442,4 +463,33 @@ class JournalAppState extends State<JournalApp> with WidgetsBindingObserver {
       },
     );
   }
+}
+
+/// A transparent widget that removes its own route from the Navigator
+/// in the next frame.  Used to "absorb" deep-link routes pushed by
+/// Flutter's engine when the app is launched from a home-screen widget
+/// (warm start).  The actual repo switching is handled separately by
+/// [HomeWidgetService.widgetRepoIdStream].
+class _AutoRemoveRoute extends StatefulWidget {
+  const _AutoRemoveRoute();
+
+  @override
+  State<_AutoRemoveRoute> createState() => _AutoRemoveRouteState();
+}
+
+class _AutoRemoveRouteState extends State<_AutoRemoveRoute> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final route = ModalRoute.of(context);
+      if (route != null) {
+        Navigator.of(context).removeRoute(route);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
