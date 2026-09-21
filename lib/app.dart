@@ -20,6 +20,7 @@ import 'package:gitjournal/l10n.dart';
 import 'package:gitjournal/logger/logger.dart';
 import 'package:gitjournal/repository_manager.dart';
 import 'package:gitjournal/screens/error_screen.dart';
+import 'package:gitjournal/screens/home_screen.dart';
 import 'package:gitjournal/settings/app_config.dart';
 import 'package:gitjournal/settings/settings.dart';
 import 'package:gitjournal/settings/storage_config.dart';
@@ -550,13 +551,12 @@ class _AutoRemoveRouteState extends State<_AutoRemoveRoute> {
     // Switch repo immediately (non-blocking for the UI)
     _switchRepo();
 
+    // Replace this transparent route with the home screen so the navigator
+    // stack is never left empty (which would show a black screen).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final route = ModalRoute.of(context);
-      if (route != null) {
-        Navigator.of(context).removeRoute(route);
-        Log.i("_AutoRemoveRoute: removed itself from Navigator");
-      }
+      Navigator.of(context).pushReplacementNamed(HomeScreen.routePath);
+      Log.i("_AutoRemoveRoute: replaced itself with HomeScreen route");
     });
   }
 

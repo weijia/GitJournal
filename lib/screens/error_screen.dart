@@ -69,7 +69,7 @@ class ErrorScreen extends StatelessWidget {
                 child: ListView.builder(
                   itemCount: DebugNavigatorObserver.instance.logEntries.length,
                   itemBuilder: (context, index) {
-                    return Text(
+                    return SelectableText(
                       DebugNavigatorObserver.instance.logEntries[index],
                       style: const TextStyle(
                           fontSize: 10,
