@@ -6,10 +6,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:gitjournal/l10n.dart';
-import 'package:gitjournal/logger/logger.dart';
 import 'package:gitjournal/repository_manager.dart';
 import 'package:gitjournal/settings/settings_git_remote.dart';
-import 'package:gitjournal/utils/debug_nav_observer.dart';
 import 'package:gitjournal/widgets/app_drawer.dart';
 import 'package:provider/provider.dart';
 
@@ -26,61 +24,12 @@ class ErrorScreen extends StatelessWidget {
     // assert(repoManager.currentRepo == null);
 
     if (repoManager.currentRepo != null) {
-      Log.e("ErrorScreen shown but repo is NOT null! "
-          "repoId=${repoManager.currentRepo?.id}, "
-          "currentRoute=${ModalRoute.of(context)?.settings.name}");
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Debug: ErrorScreen (should not be visible)'),
-          backgroundColor: Colors.red,
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  "This screen should never be visible",
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Route: ${ModalRoute.of(context)?.settings.name ?? "(unknown)"}',
-                style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-              ),
-              Text(
-                'Repo: ${repoManager.currentRepo?.id ?? "null"}',
-                style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-              ),
-              Text(
-                'CurrentId: ${repoManager.currentId}',
-                style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Navigation log:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: DebugNavigatorObserver.instance.logEntries.length,
-                  itemBuilder: (context, index) {
-                    return Text(
-                      DebugNavigatorObserver.instance.logEntries[index],
-                      style: const TextStyle(
-                          fontSize: 10,
-                          fontFamily: 'monospace',
-                          color: Colors.green),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+      return Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Text(
+          "This screen should never be visible",
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.headlineMedium,
         ),
       );
     }

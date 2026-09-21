@@ -50,22 +50,15 @@ class HomeWidgetService {
     }
     try {
       final uri = await HomeWidget.initiallyLaunchedFromHomeWidget();
-      Log.i("Widget: initiallyLaunchedFromHomeWidget returned URI: '$uri'");
-      Log.i("  uri type: ${uri?.runtimeType}, "
-          "scheme: ${uri?.scheme}, host: ${uri?.host}, "
-          "pathSegments: ${uri?.pathSegments}");
       if (uri != null &&
           uri.scheme == 'gitjournal' &&
           uri.host == 'repo' &&
           uri.pathSegments.isNotEmpty) {
-        Log.i("  -> extracted repoId: ${uri.pathSegments.first}");
         return uri.pathSegments.first;
       }
-      Log.i("  -> URI did not match gitjournal://repo/{repoId} pattern, "
-          "returning null");
       return null;
-    } catch (e, st) {
-      Log.e("Widget: Failed to get initial widget data", ex: e, stacktrace: st);
+    } catch (e) {
+      Log.e("Failed to get initial widget data", ex: e);
       return null;
     }
   }
